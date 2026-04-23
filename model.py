@@ -58,11 +58,43 @@ def dBdt(t_i, i, B, B0, NPP0, U, alpha, beta):
   ])
 
 ################################################################################
-# 
+# Impulse response function
 ################################################################################
-################################################################################
+k = 3.06e-3
+A = [0.113, 0.213, 0.258, 0.273, 0.1430]
+tau0 = [2.0, 12.2, 50.4, 243.3, 1e12]
+n = 5
+M0 = B0[0] # Carbon stock in atmosphere before industrialization
 
-## Load data from .csv-files
+# def tau(i, t):
+#   return tau0[i] * (1 + k * np.sum(U(s) for s in range(0, t)))
+
+# def tau_by_sum(i, cumulative_U):
+#   return tau0[i] * (1 + k * cumulative_U)
+
+def tau(i, s_idx, cumulative_U):
+  return tau0[i] * (1 + k * cumulative_U[s_idx-1])
+
+# def impulse_control(t):
+#   return sum(A[i] * np.exp(-t / tau(i, t)) for i in range(n))
+
+# def impulse_control_by_sum(t, cumulative_U):
+#   return sum(A[i] * np.exp(-t / tau_by_sum(i, cumulative_U)) for i in range(len(len(tau0))))
+
+# Impulse control
+def I(t_val, s_idx, cumulative_U):
+  return sum(A[i] * np.exp(-t_val / tau(i, s_idx, cumulative_U)) for i in range(n))
+
+# Amount of CO2 in atmosphere
+def M(t, s, t_idx, cumulative_U):
+  return M0 + sum(
+    I(t[t_idx] - s[s_idx], t_idx, cumulative_U) * U[s_idx]
+      for s_idx in range(t_idx + 1)
+  )
+
+################################################################################
+# Load data from .csv-files
+################################################################################
 # Emission data
 emission_data = np.genfromtxt("utslappRCP45.csv", delimiter=",")
 t = np.arange(emission_data[1, 0], emission_data[-1, 0]+1)
@@ -77,8 +109,9 @@ print(emission_data)
 print("co2_concentration_data")
 print(co2_concentration_data)
 
-
-## Tasks
+################################################################################
+# Tasks
+################################################################################
 # Constants
 co2_per_gtc = 0.469
 
@@ -86,11 +119,30 @@ co2_per_gtc = 0.469
 # - Construct a model for the carbon cycle
 # - Analyze how flows between differnt boxes are affected by emission_data.
 # - Answer "Why do you think your calculated concentrations differ?"
-
 def task1():
   # Solve B
   beta = 0.35
   B = solve_euler(dBdt, t, B0, args=(NPP0, U, alpha, beta))
+  # Calculate atomstpheric CO2 concentrations
+  co2 = co2_per_gtc * B[:,0]
+  # Plot CO2 according to model and data
+  plt.plot(t, co2, label=f"beta={beta}")
+  plt.plot(t2, y, "black", label="koncentrationerRCP45.csv")
+  plt.title("CO²")
+  plt.legend()
+  plt.show()
+
+# Same as task 1, but with the solve-euler function expanded
+def task1_alt():
+  beta = 0.35
+  B = np.zeros((len(t), *np.shape(B0)))
+  B[0] = B0
+  # Loop for euler method:
+  for t_idx, t_val in enumerate(t):
+    if t_idx == 0: continue
+    dt = t[t_idx] - t[t_idx-1]
+    B[t_idx] = B[t_idx-1] + dBdt(t_val, t_idx, B[t_idx-1], B0, *args) * dt
+
   # Calculate atomstpheric CO2 concentrations
   co2 = co2_per_gtc * B[:,0]
   # Plot CO2 according to model and data
@@ -116,44 +168,118 @@ def task2():
   plt.legend()
   plt.show()
 
-def task3():
-  k = 3.06e-3
-  A = [0.113, 0.213, 0.258, 0.273, 0.1430]
-  tau0 = [2.0, 12.2, 50.4, 243.3, 1e12]
-  n = 5
 
-  # def tau(i, t):
-  #   return tau0[i] * (1 + k * np.sum(U(s) for s in range(0, t)))
-
-  def tau_by_sum(i, cumulative_U):
-    return tau0[i] * (1 + k * cumulative_U)
   
-  # def impulse_control(t):
-  #   return sum(A[i] * np.exp(-t / tau(i, t)) for i in range(n))
 
-  def impulse_control_by_sum(t, cumulative_U):
-    return sum(A[i] * np.exp(-t / tau_by_sum(i, cumulative_U)) for i in range(n))
-
-  for cumulative_U in (0, 140, 560, 1680):
+def task3():
+  for cumulative_U_val in (0, 140, 560, 1680):
+    cumulative_U = [cumulative_U_val]
     t = np.arange(501)
     print(t)
-    plt.plot(t, impulse_control_by_sum(t, cumulative_U), label=cumulative_U)
+    I_vals = np.zeros_like(t)
+
+    for t_idx, t_val in enumerate(t):
+      I_vals[i] = I(t_val, 0, cumulative_U)
+
+    plt.plot(t, I_vals, label=cumulative_U)
   plt.show()
+
+def task4():
+  M_vals = np.zeros_like(t)
+  cumulative_U = np.zeros_like(t)
+  # Set initial values
+  M_vals[0] = M0
+  cumulative_U[0] = U[0]
+
+  # Simulate
+  for t_idx, t_val in enumerate(t[1:], 1): # Note that we simulate for t=0
+    cumulative_U[t_idx] = cumulative_U[t_idx - 1] + U[t_idx]
+    M_vals[t_idx] = M(t, t, t_idx, cumulative_U)
+
+  co2 = co2_per_gtc * M_vals
+  plt.plot(t, co2, label="A")
+  plt.plot(t2, y, "black", label="koncentrationerRCP45.csv")
+  plt.title("CO²")
+  plt.show()
+
+# TODO: Adjust beta so that model-calculated concentrationsn align with kocntrationerRCP45.csv
+# TODO: Task 7
+def task6_and_7():
+  ## Task 6
+  # global t
+  # global t2
+  # global y
+  # # Use a subset of t
+  # t = t[0:300]
+  # t2 = t2[0:300]
+  # y = t[0:300]
+  # Consts
+  beta = 0.35
+
+  # Simulation outputs  
+  cumulative_U = np.zeros_like(t)
+  B = np.zeros((len(t), *np.shape(B0)))
+  # Set initial values
+  cumulative_U[0] = U[0]
+  B[0] = B0
+  # Simulate
+  for t_idx in range(len(t)-1):
+    dt = t[t_idx+1] - t[t_idx]
+    NPP_val = NPP(NPP0, B[t_idx], B0, beta)
+
+    # "emissions" include non athropogenic emissions, but not co2 uptake by oceans
+    emissions = alpha[2, 0]*B[t_idx,2] + alpha[1, 0]*B[t_idx,1] - NPP_val + U[i]
+    dB1dt = NPP_val - alpha[1, 2]*B[t_idx, 1] - alpha[1, 0]*B[t_idx, 1]
+    dB2dt = alpha[1, 2]*B[t_idx, 1] - alpha[2, 0]*B[t_idx, 2]
+    cumulative_U[t_idx+1] = cumulative_U[t_idx] + emissions
+    B[t_idx+1, 0] = M(t, t, t_idx+1, cumulative_U)
+    B[t_idx+1, 1] = B[t_idx, 1] + dB1dt * dt
+    B[t_idx+1, 2] = B[t_idx, 2] + dB2dt * dt
+    
+  co2 = co2_per_gtc * B[:, 0]
+  plt.plot(t, co2, label="model")
+  plt.plot(t2, y, "black", label="koncentrationerRCP45.csv")
+  plt.title("CO²")
+  plt.legend()
+  plt.show()
+
+  ## Task 7
+  plt.plot(t, B[:,0] / B0[0], label="1")
+  plt.plot(t, B[:,1] / B0[1], label="2")
+  plt.plot(t, B[:,2] / B0[2], label="3 / 10")
+  # plt.plot(t2, (y/y[0]), "black", label="koncentrationerRCP45.csv")
+  plt.title("carbon")
+  plt.legend()
+  plt.show()
+
+
+
+#   # Simulate
+#   M_vals = np.zeros_like(t)
+#   for t_idx, t_val in enumerate(t):
+#     M_vals[t_idx] = M(t, t, t_idx, cumulative_U)
+
+#   # Simulate
+#   for t_idx, t_val in enumerate(t):
+    
+    
+  
 
 ## Parse arguments
 parser = argparse.ArgumentParser();
 # Question/task
 parser.add_argument(
   "-q",
-  type=int,
-  default=0
+  default="0"
 )
 
 args = parser.parse_args()
 
 ## Do tasks
-if args.q in (0, 1): task1()
-if args.q in (0, 2): task2()
-if args.q in (0, 3): task3()
-# if args.q in (0, 4): task4()
+if args.q in ("0", "1"): task1()
+if args.q in ("1alt"  ): task1_alt()
+if args.q in ("0", "2"): task2()
+if args.q in ("0", "3"): task3()
+if args.q in ("0", "4"): task4()
+if args.q in ("0", "6", "7"): task6_and_7()
 
