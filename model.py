@@ -121,23 +121,29 @@ def dBdt_basic(B, U, alpha, beta):
 # Why this impulse function? Upper layers of the ocean absorb carbon relatively quickly, but carbon exchange between deeper and deeper layers of the ocean takes time.
 
 # Consts
-k = 3.06e-3
-A = [0.113, 0.213, 0.258, 0.273, 0.1430]
-tau0 = [2.0, 12.2, 50.4, 243.3, 1e12]
-n = 5
+k_default = 3.06e-3 # Constant for speed of oceanic saturation(and absorption)
+A = [0.113, 0.213, 0.258, 0.273, 0.1430] # Fraction of CO2 emissions that decay with a time constant tau_i.
+tau0 = [2.0, 12.2, 50.4, 243.3, math.inf] # Tau before industrialization
 M0 = B0[0] # Carbon stock in atmosphere before industrialization
 
-def tau(i, s_idx, cumulative_U):
-  return tau0[i] * (1 + k * cumulative_U[s_idx-1])
+# Time constant
+def tau(i, cumulative_U, k=k_default):
+  return tau0[i] * (1 + k * cumulative_U)
 
-# Impulse control
-def I(t_val, s_idx, cumulative_U):
-  return sum(A[i] * np.exp(-t_val / tau(i, s_idx, cumulative_U)) for i in range(n))
+# Impulse control ???????????????????
+# Impulse response (Fraction of CO2 remaining)
+# t_val, may be np-array or single float
+# cumulative_U - prior emissions at time s. May only be np-array if s=t.
+def I(t_val, cumulative_U, k=k_default):
+  return sum(
+    A[i] * np.exp(-t_val / tau(i, cumulative_U, k=k))
+      for i in range(len(A)-1)
+  ) + A[4]
 
 # Amount of CO2 in atmosphere
-def M(t, s, t_idx, cumulative_U):
+def M(t, s, t_idx, U, cumulative_Us, k=k_default):
   return M0 + sum(
-    I(t[t_idx] - s[s_idx], t_idx, cumulative_U) * U[s_idx]
+    I(t[t_idx] - s[s_idx], cumulative_Us[t_idx], k=k) * U[s_idx]
       for s_idx in range(t_idx + 1)
   )
 
@@ -165,12 +171,10 @@ rf_data_co2      = rf_data[1:, 1] # W/m²
 rf_data_aerosols = rf_data[1:, 2] # W/m²
 rf_data_other    = rf_data[1:, 3] # W/m²
 
-
-
-print("emission_data")
-print(emission_data)
-print("co2_concentration_data")
-print(co2_concentration_data)
+# print("emission_data")
+# print(emission_data)
+# print("co2_concentration_data")
+# print(co2_concentration_data)
 
 ################################################################################
 # Tasks
@@ -275,7 +279,7 @@ def part1():
       B[0] = B0
       # Loop for euler method:
       for t_idx in range(len(t)-1):
-        dt = t[t_idx+1] - t[t_idx]
+        dt = 1
         dBdt_val = dBdt_basic(B[t_idx], U[t_idx], alpha, beta)
         B[t_idx+1] = B[t_idx] + dBdt_val * dt
 
@@ -294,7 +298,7 @@ def part1():
       B = np.zeros((len(t), *np.shape(B0)))
       B[0] = B0
       for t_idx in range(len(t)-1):
-        dt = t[t_idx+1] - t[t_idx]
+        dt = 1
         dBdt_val = dBdt_basic(B[t_idx], U[t_idx], alpha, beta)
         B[t_idx+1] = B[t_idx] + dBdt_val * dt
       plt.plot(t, B[:, 1], label=f"box 1, beta={beta}")
@@ -306,85 +310,103 @@ def part1():
     plt.show()
     
 
-  # Task 3 
+  # Task 3
+  # - "Implement a time-discrete model that reproduces the impulse responses shown..."
   def task3():
-    for cumulative_U_val in (0, 140, 560, 1680):
-      cumulative_U = [cumulative_U_val]
+    for cumulative_U in (0, 140, 560, 1680):
       t = np.arange(501)
-      print(t)
       I_vals = np.zeros_like(t, dtype=np.float64)
 
       for t_idx, t_val in enumerate(t):
-        I_vals[i] = I(t_val, 0, cumulative_U)
-
-      plt.plot(t, I_vals, label=cumulative_U)
+        I_vals[t_idx] = I(t_val, cumulative_U)
+      plt.plot(t, I_vals, label=f"{cumulative_U[0]} GtC")
+      # plt.plot(t, I(t, cumulative_U), label=f"{cumulative_U[0]} GtC") # Simple alternative code replacing 3 above lines
+    plt.xlabel("Time since emissions(year)")
+    plt.ylabel("Proportion still in atmosphere")
+    plt.legend()
+    plt.title("Impulse response for CO₂ based on earlier cumulative emissions")
     plt.show()
 
+  # "Implement a model based on Equation 8 and run it using the emissions data from the file utslappRCP45.csv to calculate how atmospheric CO₂ concentration would have developed if carbon were only taken up by the ocean"
+  # Q: Compare to koncentrationerRCP45.csv
+  # A: Model follows the .csv file somewhat, but the atmospheric CO2 is higher because we don't model co2 uptake by biosphere and ground.
   def task4():
     M_vals = np.zeros_like(t, dtype=np.float64)
-    cumulative_U = np.zeros_like(t, dtype=np.float64)
+    cumulative_Us = np.zeros_like(t, dtype=np.float64)
     # Set initial values
     M_vals[0] = M0
-    cumulative_U[0] = U[0]
+    cumulative_Us[0] = U[0]
 
     # Simulate
     for t_idx, t_val in enumerate(t[1:], 1): # Note that we simulate for t=0
-      cumulative_U[t_idx] = cumulative_U[t_idx - 1] + U[t_idx]
-      M_vals[t_idx] = M(t, t, t_idx, cumulative_U)
+      cumulative_Us[t_idx] = cumulative_Us[t_idx - 1] + U[t_idx - 1]
+      M_vals[t_idx] = M(t, t, t_idx, U, cumulative_Us)
 
     co2 = co2_per_gtc * M_vals
     plt.plot(t, co2, label="A")
     plt.plot(t, co2_concentration, "black", label="koncentrationerRCP4.csv")
-    plt.title("CO²")
-    plt.show()
-
-  # TODO: Adjust beta so that model-calculated concentrationsn align with kocntrationerRCP45.csv
-  # TODO: Task 7
-  def task6_and_7():
-    ## Task 6
-    # global t
-    # global t
-    # global co2_concentration
-    #  Use a subset of t
-    # t = t[0:300]
-    # t = t[0:300]
-    # co2_concentration = t[0:300]
-    #Consts
-    beta = 0.35
-
-    # Simulation outputs  
-    cumulative_U = np.zeros_like(t, dtype=np.float64)
-    B = np.zeros((len(t), *np.shape(B0)))
-    # Set initial values
-    cumulative_U[0] = U[0]
-    B[0] = B0
-    # Simulate
-    for t_idx in range(len(t)-1):
-      dt = t[t_idx+1] - t[t_idx]
-      NPP_val = NPP(NPP0, B[t_idx], B0, beta)
-
-      # "emissions" include non athropogenic emissions, but not co2 uptake by oceans
-      emissions = alpha[2, 0]*B[t_idx,2] + alpha[1, 0]*B[t_idx,1] - NPP_val + U[i]
-      dB1dt = NPP_val - alpha[1, 2]*B[t_idx, 1] - alpha[1, 0]*B[t_idx, 1]
-      dB2dt = alpha[1, 2]*B[t_idx, 1] - alpha[2, 0]*B[t_idx, 2]
-      cumulative_U[t_idx+1] = cumulative_U[t_idx] + emissions
-      B[t_idx+1, 0] = M(t, t, t_idx+1, cumulative_U)
-      B[t_idx+1, 1] = B[t_idx, 1] + dB1dt * dt
-      B[t_idx+1, 2] = B[t_idx, 2] + dB2dt * dt
-    
-    co2 = co2_per_gtc * B[:, 0]
-    plt.plot(t, co2, label="model")
-    plt.plot(t, co2_concentration, "black", label="koncentrationerRCP4.csv")
-    plt.title("CO²")
+    plt.xlabel("Year")
+    plt.ylabel("CO²")
+    plt.title("Atmospheric CO² by only modelling oceanic absorption")
     plt.legend()
     plt.show()
 
-    ## Task 7
-    plt.plot(t, B[:,0] / B0[0], label="1")
-    plt.plot(t, B[:,1] / B0[1], label="2")
-    plt.plot(t, B[:,2] / B0[2], label="3 / 10")
-    plt.plot(t, (co2_concentration/co2_concentration[0]), "black", label="koncentrationerRCP45.csv")
-    plt.title("carbon")
+  # Task 5: Draw a new box model that also includes oceanic carbon uptake, and add anthropogenic emissions.
+
+  # TODO: Adjust beta so that model-calculated concentrationsn align with kocntrationerRCP45.csv
+  # Task 6:
+  # - "Connect the impulse response model for oceanic CO₂ uptake with the box model for biospheric CO2 uptake"
+  # - Find reasonable value for beta
+  # Task 7:
+  # - Analyze long term fate of antrhopogenic CO2 emissions
+  def task6_and_7():
+    def simulate(k, beta):
+      cumulative_Us = np.zeros_like(t, dtype=np.float64)
+      B = np.zeros((len(t), 4))
+      # Set initial values
+      cumulative_Us[0] = U[0]
+      B[0] = [*B0, 1750 + 37100 + 700 + 900 + 3]
+      # Simulate
+      for t_idx in range(len(t)-1):
+        dt = t[t_idx+1] - t[t_idx]
+        NPP_val = NPP(NPP0, B[t_idx], B0, beta)
+
+        # "emissions" include non athropogenic emissions, but not co2 uptake by oceans
+        emissions = alpha[2, 0]*B[t_idx,2] + alpha[1, 0]*B[t_idx,1] - NPP_val + U[i]
+        dB1dt = NPP_val - alpha[1, 2]*B[t_idx, 1] - alpha[1, 0]*B[t_idx, 1]
+        dB2dt = alpha[1, 2]*B[t_idx, 1] - alpha[2, 0]*B[t_idx, 2]
+        cumulative_Us[t_idx+1] = cumulative_Us[t_idx] + emissions
+        B[t_idx+1, 0] = M(t, t, t_idx+1, U, cumulative_Us, k=k)
+        B[t_idx+1, 1] = B[t_idx, 1] + dB1dt * dt
+        B[t_idx+1, 2] = B[t_idx, 2] + dB2dt * dt
+        # B[t_idx+1, 3] = B[t_idx, 3] + sum(B[t_idx, idx] - B[t_idx+1, idx] for idx in range(3)) + emissions
+        B[t_idx+1, 3] = B[t_idx, 3] + cumulative_Us[t_idx+1] + sum(B[0,i] - B[t_idx+1,i] for i in range(3)) # Something wrong here
+      return B
+    
+    #Consts
+    betas = [0.25, 0.35, 0.45]
+    ks = [1e-3, k_default, 5e-6]
+    colors = plt.cm.jet(np.linspace(0, 1, 5))
+    styles = [":", "-.", "--"]
+    # 6 and half of 7
+    for k_idx, k in enumerate(ks):
+      for beta_idx, beta in enumerate(betas):
+        B = simulate(k, beta)
+        co2 = co2_per_gtc * B[:, 0]
+        plt.plot(t, co2, color=colors[k_idx], linestyle=styles[beta_idx], label=f"model, k={k}, beta={beta}")
+    plt.plot(t, co2_concentration, "black", linestyle="-", label="koncentrationerRCP4.csv")
+    plt.title(f"CO², beta={beta}")
+    plt.legend()
+    plt.show()
+    # Last part of 7
+    k = ks[1]
+    beta = betas[1]
+    B = simulate(k, beta)
+    for idx in range(4):
+      plt.plot(t, B[:, idx], color=colors[idx], label=f"model, box={idx}, k={k}, beta={beta}")
+    plt.xlabel("Year")
+    plt.ylabel("GtC")
+    plt.title(f"Carbon, beta={beta}")
     plt.legend()
     plt.show()
 
