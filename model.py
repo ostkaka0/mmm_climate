@@ -416,8 +416,11 @@ def part1():
   if args.q in (0, 4): task4()
   if args.q in (0, 6, 7): task6_and_7()
 
-
 def part2():
+  # Task 8
+  # - "Construct a radiative forcing module"
+  # Q: "alculate and visualize the radiative forcing for CO₂, and compare these values with the CO₂ radiative forcing in radiativeForcingRCP45.csv"
+  # A: Our model is very close to the data given, it's just slightly below. 
   def task8():
     P_co2 = co2_concentration
     P_co2_0 = P_co2[0]
@@ -427,11 +430,13 @@ def part2():
       print(t_idx, t_val, rf_co2[t_idx], (5.35 * np.log(P_co2/P_co2_0))[t_idx])
     plt.plot(t, rf_co2)
     plt.plot(t, 5.35 * np.log(P_co2/P_co2_0), label="model")
-    plt.plot(t, rf_data_co2, label="koncentrationerRCP45.csv")
+    plt.plot(t, rf_data_co2, label="radiativeForcingRCP45.csv")
     plt.title("Radiative forcing")
     plt.legend()
     plt.show()
 
+  # Task 9:
+  # - "Sum the radiative forcing for other climate-affecting substances and aerosols"
   def task9():
     s = 1
     rf_total = rf_data_co2 + s * rf_data_aerosols + rf_data_other
@@ -445,8 +450,6 @@ def part2():
     plt.title("Radiative forcing")
     plt.show()
   
-
-
   def task10():
     s = 1
     rf_total = rf_data_co2 + s * rf_data_aerosols + rf_data_other
@@ -454,7 +457,7 @@ def part2():
     lambda_param = None # (K W⁻¹ m²), climate sensitivity parameter 
     kappa = None # (W K⁻¹ m⁻²), exchange coefficition between box 1 and box 2
     c_jl = 4186 # (J/kg)/K Specific heat capacity of water using Joule units.
-    c = c_jl * 3600 * 24 * 365.25 # ((W yr / kg)/K) Same as c_jl, but with the prefered units.
+    c = c_jl / (3600 * 24 * 365.25) # ((W yr / kg)/K) Same as c_jl, but with the prefered units.
     rho = 1020 # (kg/m³) Density of water
     h = 50 # (m) the effective height of box 0 (Surface)
     d = 2000 # (m) The effective depth of box 1 (Deep ocean)
@@ -466,6 +469,7 @@ def part2():
     # rf_net - Net radiative forcing in (W/m²)
     def simulate(t, rf_net, lambda_param=0.8, kappa=0.5):
       # T_diff - Temperature difference since preindustrial times in Kelvin
+      dTdt = np.zeros((len(t), 2), dtype=np.float64)
       T_diff = np.zeros((len(t), 2), dtype=np.float64)
       T_diff[0] = [0, 0] # Initial conditions
 
@@ -473,19 +477,20 @@ def part2():
       for t_idx in range(len(t) - 1):
         dt = t[t_idx+1] - t[t_idx]
         temp_exchange = kappa * (T_diff[t_idx, 0] - T_diff[t_idx, 1]) # (W m⁻²)
-        dTdt = np.array([
+        dTdt[t_idx] = np.array([
           rf_net[t_idx] - T_diff[t_idx, 0] / lambda_param - temp_exchange,
           temp_exchange
-        ]) / C * 1e15 # (K/yr)
-        T_diff[t_idx+1] = T_diff[t_idx] + dTdt * dt # (Kelvin)
+        ]) / C # (K/yr)
+        T_diff[t_idx+1] = T_diff[t_idx] + dTdt[t_idx] * dt # (Kelvin)
+        
         # dTdt_arr[t_idx+1] = dTdt
-      return T_diff    
+      return T_diff, dTdt   
     
     
     
 
     def plot_T_diff(t, T_diff, lambda_param=0.8, kappa=0.5, label_suffix="", color=None):
-      equilibrium = 1 * lambda_param
+      equilibrium = 1 * lambda_param # rf_net = 1 for all t
       e_folding_time = None
       for t_idx, t_val in enumerate(t):
         if T_diff[t_idx, 0] > (1 - 1/math.e) * equilibrium:
@@ -506,36 +511,66 @@ def part2():
     
     
     # Task 10a
+    # "Test the model by analyzing the temperature response based on a radiative forcing step of 1 W/m2"
     t_test = np.arange(0, 10**4)
     rf_test = np.zeros_like(t_test, dtype=np.float64) + 1
     plt.title("Task 10a - Temperature response")
-    T_diff = simulate(t_test, rf_test)
+    T_diff, _ = simulate(t_test, rf_test)
     plot_T_diff(t_test, T_diff)
     plt.show()
 
-    # Task 10b
+    # Task 10b:
+    # - "nalyze the effect of the climate sensitivity parameter 𝜆 and the exchange coefficient κ on the time required to reach equilibrium temperature"
     plt.title("Task 10b - Temperature response for different lambdas")
-    lambda_params = np.linspace(0.5, 1.3, 3)
+    lambda_params = np.array([0.5, 0.8, 1.3])
     colors = plt.cm.jet(np.linspace(0, 1, len(lambda_params)))
     for idx in range(len(lambda_params)):
       lambda_param = lambda_params[idx]
       color = colors[idx]
-      T_diff = simulate(t_test, rf_test, lambda_param=lambda_param)
+      T_diff, _ = simulate(t_test, rf_test, lambda_param=lambda_param)
       plot_T_diff(t_test, T_diff, lambda_param=lambda_param, color=color, label_suffix=f", lambda={lambda_param}")
     plt.show()
 
     plt.title("Task 10b - Temperature response for different kappas")
     lambda_param = 0.8
-    kappas = np.linspace(0.2, 1.0, 3)
+    kappas = np.array([0.2, 0.5, 1])
     colors = plt.cm.jet(np.linspace(0, 1, len(kappas)))
     for idx in range(len(kappas)):
       kappa = kappas[idx]
       color = colors[idx]
-      T_diff = simulate(t_test, rf_test, kappa=kappa)
+      T_diff, _ = simulate(t_test, rf_test, kappa=kappa)
       plot_T_diff(t_test, T_diff, kappa=kappa, color=color, label_suffix=f", kappa={kappa}")
     plt.show()
 
     # TODO: Task 10c
+    # Q: Analyze energy fluxes
+    # A: Net flux is 0 for all t, that is energy is conserved!
+    #    We can also see that the heat radiation flux and the heat energy flux are perfectly mirrored against y=0.5, which makes sense because they both should add up to 1. 
+    for idx in range(2*len(kappas)):
+      kappa = kappas[idx if idx < 3 else 1]
+      lambda_param = kappas[idx-3 if idx >= 3 else 1]
+      color = colors[idx % 3]
+      T_diff, dTdt = simulate(t_test, rf_test, kappa=kappa, lambda_param=lambda_param)
+      heat_energy_flux = np.array([C[0]*dTdt[:,0], C[1]*dTdt[:,1]]) # (W yr K⁻¹ m⁻²) * (K/yr) = W/m²
+      total_heat_energy_flux = heat_energy_flux[0] + heat_energy_flux[1]
+      print("rf test", rf_test)
+      in_flux = rf_test # W/m²
+      out_flux = T_diff[:, 0] / lambda_param # K / (K W⁻¹ m²) = W/m²
+      net_flux = in_flux - out_flux - total_heat_energy_flux
+      print(in_flux)
+      plt.plot(t_test, total_heat_energy_flux, linestyle=":", color=color, label=f"heat energy flux kappa={kappa}, lambda={lambda_param}")
+      plt.plot(t_test, in_flux, color=color, linestyle="--", label=f"in, kappa={kappa}, lambda={lambda_param}")
+      plt.plot(t_test, out_flux, color=color, linestyle="-.", label=f"out, kappa={kappa}, lambda={lambda_param}")
+      plt.plot(t_test, net_flux, color="black", label=f"net flux, kappa={kappa}, lambda={lambda_param}")
+      if idx == 2 or idx == 5:
+        plt.xlabel("Years")
+        plt.ylabel("W/m²")
+        if idx == 2:
+          plt.title(f"Energy flux, lambda={lambda_param}")
+        else:
+          plt.title(f"Energy flux, kappa={kappa}")
+        plt.legend()
+        plt.show()
 
     # Not the exercise:
     T_diff = simulate(t, rf_total, lambda_param)
