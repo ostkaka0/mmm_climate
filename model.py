@@ -5,10 +5,18 @@ import matplotlib.pyplot as plt
 import argparse
 import os
 
+# Helper function to save plots to .pdf-files
 def show_plot(name):
   filepath = f"plots/{name}.pdf"
   plt.savefig(filepath, format="pdf")
   plt.show()
+
+# We always use fixed time steps of 1 year in simulations
+dt = 1
+
+# Color and style sets
+colors = [plt.cm.tab10(i) for i in range(5)]
+styles = [":", "--", "-.", (5, (10, 3))]
 
 ################################################################################
 # Notes
@@ -20,9 +28,9 @@ def show_plot(name):
 ### Part 2: Energy balance modelling
 # - Goal is to analyze: Human activities -> change in radiatie balance -> change in mean global temperature
 # - Goal: Analyze temperature(mean global temperature) response caused by human activities.
-# - Radiative forcing: Warminng due to greenhouse gas emissions and other substances
+# - Radiative forcing: Warminng due to greenhouse gas emissions and other substances.
 # - Energy balance model: The change in earths energy is calculated from radiative forcing, outgoing thermal radiation and energy to heat the oceans from pre-industrial levels to current temperatures.
-# - Due to the large thermal capacity of the ocean there is a lag betwee radiative forcig and thermal radiation.
+# - Due to the large thermal capacity of the ocean there is a lag betwee radiative forcing and thermal radiation.
 #
 # Box Model:
 # - Upper box: Combined effective heat capacity of upper ocean, atmosphere and land surfaces
@@ -69,7 +77,7 @@ for i in range(3):
   for j in range(3):
     alpha[i, j] = F0[i, j] / B0[i]
 
-beta_default = 0.35
+beta_default = 0.35 # Default value for beta(Fertilization factor)
 
 # NPP(Net Primary Production) - Flow from atmosphere to above-ground biomass (GtC/yr)
 # beta - Fertilization factor
@@ -82,48 +90,15 @@ def NPP(NPP0, B, B0, beta):
 # U   - Emission indexed by i
 # alpha[i,j[i,j]] = F0[i,j] / B0[i]
 # beta - Fertilization factor
-def dBdt_basic(B, U, alpha, beta):
+def dBdt_basic(B, U, beta):
   NPP_val = NPP(NPP0, B, B0, beta)
-  # "net flow" means inflow - outflow
 
-  # # New code that might not be more readable:
+  # # Alternative code that might not be more readable:
   # # Inflow modelled by a linear function of B
   # alpha_linear = alpha * np.array([[1, 0, 1], [1, 1, 1], [1, 1, 1]])
   # inflow_linear = alpha_linear.T @ B # Inflow modelled by a linear function of B
   # outflow_linear = np.sum(alpha_linear, axis=1) * B # Inflow modelled by a linear function of B
   # net_flow_linear = inflow_linear - outflow_linear
-  # print(alpha)
-  # print(alpha_linear)
-  # print(B)
-  # print("expected for [0]", alpha[2,0]*B[2] + alpha[1,0]*B[1])
-  # print("inflow linear", inflow_linear)
-  # print("outflow linear", outflow_linear)
-  # print("net flow linear", net_flow_linear)
-  # print("Expected inflow linear:")
-  # print(np.array([
-  #   alpha[2, 0]*B[2] + alpha[1, 0]*B[1],
-  #   0,
-  #   alpha[1, 2]*B[1]
-  # ]))
-  # print("Expected outflow linear:")
-  # print(np.array([
-  #   0,
-  #   alpha[1, 2]*B[1] + alpha[1, 0]*B[1],
-  #   alpha[2, 0]*B[2]
-  # ]))
-  # print("Expected net flow linear:")
-  # print(np.array([
-  #   alpha[2, 0]*B[2] + alpha[1, 0]*B[1],
-  #   -alpha[1, 2]*B[1] - alpha[1, 0]*B[1],
-  #   alpha[1, 2]*B[1] - alpha[2, 0]*B[2]
-  # ]))
-  # assert math.isclose(inflow_linear[0], alpha[2,0]*B[2] + alpha[1,0]*B[1])
-  # assert math.isclose(inflow_linear[1], 0)
-  # assert math.isclose(outflow_linear[0], 0)
-  # assert math.isclose(outflow_linear[1], alpha[1,2]*B[1] + alpha[1,0]*B[1])
-  # assert math.isclose(net_flow_linear[0], alpha[2,0]*B[2] + alpha[1,0]*B[1])
-  # net_flow_NPP = np.array([-NPP_val, NPP_val, 0]) # Inflow due to photosynthesis
-  # net_flow_U = np.array([U, 0, 0]) # Inflow due to emisssions
   # return net_flow_linear + net_flow_NPP + net_flow_U
 
   return np.array([
@@ -136,7 +111,7 @@ def dBdt_basic(B, U, alpha, beta):
 # Impulse response function (Part 1)
 ################################################################################
 # Model oceanic uptake of atmospheric excess carbon(due to emissions) by convolving emissions with an impulse response function with the atmospheric excess carbon. By "excess carbon" I mean the additional carbon in the atmosphere relative to pre-industrial times.
-# Why this impulse function? Upper layers of the ocean absorb carbon relatively quickly, but carbon exchange between deeper and deeper layers of the ocean takes time.
+# Why this impulse function? Upper layers of the ocean absorb carbon relatively quickly, but carbon exchange between deeper and deeper layers of the ocean takes time. Also as the oceans gets more saturated with carbon, the absoption slows down.
 
 # Consts
 k_default = 3.06e-3 # Constant for speed of oceanic saturation(and absorption)
@@ -173,10 +148,10 @@ def O(t, U, cumulative_Us, k=k_default):
       for s in range(t+1)
   )
 
-################################################################################
-# Final models:
-################################################################################
 
+################################################################################
+# Combined model(box and impulse model)
+################################################################################
 # The final carbon balance model where we extend the basic box-model with the impulse-response model for oceanic absorption of carbon(co2).
 def simulate_carbon_balance(k=k_default, beta=beta_default):
   cumulative_Us = np.zeros_like(time_steps, dtype=np.float64)
@@ -188,7 +163,6 @@ def simulate_carbon_balance(k=k_default, beta=beta_default):
   B[0] = [*B0, 1750 + 37100 + 700 + 900 + 3]
   # Simulate
   for t in range(len(time_steps)-1):
-    dt = 1
     NPP_val = NPP(NPP0, B[t], B0, beta)
 
     # "emissions" include non athropogenic emissions, but not co2 uptake by oceans
@@ -196,16 +170,16 @@ def simulate_carbon_balance(k=k_default, beta=beta_default):
     dB1dt = NPP_val - alpha[1,2]*B[t,1] - alpha[1,0]*B[t,1]
     dB2dt = alpha[1,2]*B[t,1] - alpha[2,0]*B[t,2]
     cumulative_Us[t+1] = cumulative_Us[t] + net_emissions[t]
+    # Euler step
     B[t+1,0] = M(t+1, net_emissions, cumulative_Us, k=k)
     B[t+1,1] = B[t,1] + dB1dt * dt
     B[t+1,2] = B[t,2] + dB2dt * dt
     B[t+1,3] = O(t+1, net_emissions, cumulative_Us, k=k)
-    # TO calculate the amount of carbon in the ocean we take the difference between the basic model that doesn'time_steps include the ocean to the impulse response model.
-    # B[t+1,3] = B[t,3] + (B[t,0] + emissions - B[t+1,0])
-    # B[t+1, 3] = B[t, 3] + sum(B[t, idx] - B[t+1, idx] for idx in range(3)) + emissions
-    # B[t+1, 3] = B[t, 3] + cumulative_Us[t+1] + sum(B[0,i] - B[t+1,i] for i in range(3)) # Something wrong here
   return B
 
+################################################################################
+# Radiative forcing
+################################################################################
 def calc_rf_co2(P_co2):
   rf_co2 = 5.35 * np.log((P_co2/P_co2[0]))
   # rf_co2 = np.zeros_like(time_steps, dtype=np.float64)
@@ -229,19 +203,22 @@ def simulate_temp(time_steps, rf_net, lambda_param=0.8, kappa=0.5):
   # T_diff - Temperature difference since preindustrial times in Kelvin
   dTdt = np.zeros((len(time_steps), 2), dtype=np.float64)
   T_diff = np.zeros((len(time_steps), 2), dtype=np.float64)
-  T_diff[0] = [0, 0] # Initial conditions
-
-  # dTdt_arr = np.zeros((len(time_steps), 2), dtype=np.float64)
-  for t in range(len(time_steps) - 1):
-    dt = time_steps[t+1] - time_steps[t]
-    temp_exchange = kappa * (T_diff[t, 0] - T_diff[t, 1]) # (W m⁻²)
+  # Initial conditions
+  T_diff[0] = [0,0]
+  dTdt[0] = np.array([
+    rf_net[0],
+    0
+  ]) / C # (K/yr)
+  
+  for t in range(1, len(time_steps)):
+    print("t =", t)
+    T_diff[t] = T_diff[t-1] + dTdt[t-1] * dt # (Kelvin)
+    temp_exchange = kappa * (T_diff[t,0] - T_diff[t,1]) # (W m⁻²)
     dTdt[t] = np.array([
-      rf_net[t] - T_diff[t, 0] / lambda_param - temp_exchange,
+      rf_net[t] - T_diff[t,0] / lambda_param - temp_exchange,
       temp_exchange
     ]) / C # (K/yr)
-    T_diff[t+1] = T_diff[t] + dTdt[t] * dt # (Kelvin)
     
-    # dTdt_arr[t+1] = dTdt
   return T_diff, dTdt
 
 ################################################################################
@@ -329,14 +306,15 @@ def part1():
     # B = solve_euler(dBdt, time_steps, B0, args=(NPP0, U, alpha, beta)) # Old way of calculating B
     NPP_vals = np.zeros((len(time_steps),))
     B = np.zeros((len(time_steps), *np.shape(B0)))
-    B[0] = B0 # Initial condition
-    # Loop for euler method:
+    # Inital conditions
+    B[0] = B0
+    NPP_vals[0] = NPP0
+    # Simulate
     for t in range(len(time_steps)-1):
-      dt = 1
-      dBdt_val = dBdt_basic(B[t], U[t], alpha, beta)
+      dBdt_val = dBdt_basic(B[t], U[t], beta)
       NPP_val = NPP(NPP0, B[t], B0, beta)
-      NPP_vals[t] = NPP_val
-      B[t+1] = B[t] + dBdt_val * dt # By euler method
+      NPP_vals[t+1] = NPP_val
+      B[t+1] = B[t] + dBdt_val * dt # Euler step
 
     # Plot flows
     plt.plot(absolute_time_steps, NPP_vals, label="0 to 1")
@@ -344,20 +322,20 @@ def part1():
     plt.plot(absolute_time_steps, alpha[2,0]*B[:,2], label="2 to 0")
     plt.plot(absolute_time_steps, alpha[1,2]*B[:,1], label="1 to 2")
     plt.plot(absolute_time_steps, U, label="Emissions")
-    plt.title("Box flows")
+    plt.title("Box flows (Task 1)")
     plt.xlabel("Year")
-    plt.ylabel("CO2/yr")
+    plt.ylabel("GtC/yr")
     plt.legend()
     show_plot("t1a")
 
     # Calculate atomstpheric CO2 concentrations
-    P_co2 = co2_per_gtc * B[:,0]
+    P_co2 = co2_per_gtc * B[:,0] # ppm
     # Plot CO2 according to model and data
     plt.plot(absolute_time_steps, P_co2, label=f"beta={beta}")
     plt.plot(absolute_time_steps, P_co2_data, "black", linestyle=":", label="koncentrationerRCP4.csv")
     plt.xlabel("Year")
-    plt.ylabel("CO² concentration")
-    plt.title("Task 1 - Atmospheric CO2 by box model")
+    plt.ylabel("ppm CO2")
+    plt.title("Atmospheric CO2 concentration by box model (Task 1)")
     plt.legend()
     show_plot("t1b")
 
@@ -373,8 +351,7 @@ def part1():
       B = np.zeros((len(time_steps), *np.shape(B0)))
       B[0] = B0 # Initial condition
       for t in range(len(time_steps)-1):
-        dt = 1
-        dBdt_val = dBdt_basic(B[t], U[t], alpha, beta)
+        dBdt_val = dBdt_basic(B[t], U[t], beta)
         B[t+1] = B[t] + dBdt_val * dt # By euler method
 
       # Plot atmospheric CO2
@@ -382,22 +359,21 @@ def part1():
       plt.plot(absolute_time_steps, co2, label=f"beta={beta}")
     # Plot CO2 concentration data for comparison
     plt.plot(absolute_time_steps, P_co2_data, "black", linestyle=":", label="koncentrationerRCP4.csv")
-    plt.title("Atmospheric CO²")
+    plt.title("Atmospheric CO² (Task 2)")
     plt.xlabel("Year")
     plt.ylabel("CO2")
     plt.legend()
     show_plot("t2a")
 
-    for beta in np.linspace(0.1, 0.8, 3):
+    for beta_idx, beta in enumerate(np.linspace(0.1, 0.8, 3)):
       B = np.zeros((len(time_steps), *np.shape(B0)))
       B[0] = B0
       for t in range(len(time_steps)-1):
-        dt = 1
-        dBdt_val = dBdt_basic(B[t], U[t], alpha, beta)
+        dBdt_val = dBdt_basic(B[t], U[t], beta)
         B[t+1] = B[t] + dBdt_val * dt
-      plt.plot(absolute_time_steps, B[:, 1], label=f"box 1, beta={beta}")
-      plt.plot(absolute_time_steps, B[:, 2], label=f"box 2, beta={beta}")
-    plt.title("Carbon: Box 1(biomass+upper soil) and Box 2(below ground)")
+      plt.plot(absolute_time_steps, B[:, 1], c=colors[beta_idx], linestyle="-", label=f"box 1, beta={beta}")
+      plt.plot(absolute_time_steps, B[:, 2], c=colors[beta_idx], linestyle="--", label=f"box 2, beta={beta}")
+    plt.title("GtC for Box 1(biomass+upper soil) and Box 2(below ground)  (Task 2)")
     plt.xlabel("Year")
     plt.ylabel("GtC")
     plt.legend()
@@ -417,7 +393,7 @@ def part1():
     plt.xlabel("Time since emissions(year)")
     plt.ylabel("Proportion still in atmosphere")
     plt.legend()
-    plt.title("Impulse response for CO₂ based on earlier cumulative emissions")
+    plt.title("Impulse response for CO₂ based on earlier cumulative emissions (Task 3)")
     show_plot("t3a")
 
   # "Implement a model based on Equation 8 and run it using the emissions data from the file utslappRCP45.csv to calculate how atmospheric CO₂ concentration would have developed if carbon were only taken up by the ocean"
@@ -440,7 +416,7 @@ def part1():
     plt.plot(absolute_time_steps, P_co2_data, "black", label="koncentrationerRCP4.csv")
     plt.xlabel("Year")
     plt.ylabel("CO²")
-    plt.title("Atmospheric CO² by only modelling oceanic absorption")
+    plt.title("Atmospheric CO² by only modelling oceanic absorption (Task 4)")
     plt.legend()
     show_plot("t4a")
 
@@ -455,8 +431,6 @@ def part1():
   def task6_and_7():
     betas = [0.25, 0.35, 0.45]
     ks = [1e-3, k_default, 5e-6]
-    colors = plt.cm.jet(np.linspace(0, 1, 5))
-    styles = [":", "-.", "--"]
     # 6 and half of 7
     for k_idx, k in enumerate(ks):
       for beta_idx, beta in enumerate(betas):
@@ -464,7 +438,7 @@ def part1():
         co2 = co2_per_gtc * B[:, 0]
         plt.plot(absolute_time_steps, co2, color=colors[k_idx], linestyle=styles[beta_idx], label=f"model, k={k}, beta={beta}")
     plt.plot(absolute_time_steps, P_co2_data, "black", linestyle="-", label="koncentrationerRCP4.csv")
-    plt.title(f"CO², beta={beta}")
+    plt.title(f"CO², beta={beta} (Task 6)")
     plt.legend()
     show_plot("t6a")
     # Last part of 7
@@ -473,11 +447,11 @@ def part1():
     B = simulate_carbon_balance(k, beta)
     for idx in range(4):
       plt.plot(absolute_time_steps, B[:, idx] - B[0, idx], color=colors[idx], label=f"model, box={idx}({box_names[idx]}), k={k}, beta={beta}")
-      plt.plot(absolute_time_steps, np.sum(B - B[0], axis=1), color="red", label=(f"model, net carbon change" if idx==3 else None))
+      plt.plot(absolute_time_steps, np.sum(B - B[0], axis=1), color=colors[4], label=(f"model, net carbon change" if idx==3 else None))
     plt.plot(absolute_time_steps+1, np.cumsum(U), ":", color="black", label=f"Cumulative (prior) emissions")
     plt.xlabel("Year")
     plt.ylabel("GtC")
-    plt.title(f"Carbon change relative to pre-industrial times, beta={beta}")
+    plt.title(f"Carbon change relative to pre-industrial times, beta={beta} (Task 7)")
     plt.legend()
     show_plot("t6b")
 
@@ -491,7 +465,7 @@ def part2():
   # Task 8
   # - "Construct a radiative forcing module"
   # Q: "alculate and visualize the radiative forcing for CO₂, and compare these values with the CO₂ radiative forcing in radiativeForcingRCP45.csv"
-  # A: Our model is very close to the data given, it's just slightly below. 
+  # A: Our model is very close to the data given, it's just slightly below. The reasons seems to be that there is a "jump" from the inital time point to the first year in the .csv file. We could adjust the model to take that into consideration and the difference between our model and the .csv would probably become very close. 
   def task8():
     P_co2 = P_co2_data
     P_co2_0 = P_co2[0]
@@ -500,7 +474,7 @@ def part2():
     plt.plot(absolute_time_steps, rf_co2)
     plt.plot(absolute_time_steps, 5.35 * np.log(P_co2/P_co2_0), label="model")
     plt.plot(absolute_time_steps, rf_data_co2, label="radiativeForcingRCP45.csv")
-    plt.title("Radiative forcing")
+    plt.title("Radiative forcing (Task 8)")
     plt.legend()
     show_plot("t8a")
 
@@ -516,7 +490,7 @@ def part2():
     plt.ylabel("W/m²")
     plt.xlabel("Year")
     plt.legend()
-    plt.title("Radiative forcing")
+    plt.title("Radiative forcing (Task 9)")
     show_plot("t9a")
 
   
@@ -538,7 +512,6 @@ def part2():
 
     #   # dTdt_arr = np.zeros((len(time_steps), 2), dtype=np.float64)
     #   for t in range(len(time_steps) - 1):
-    #     dt = time_steps[t+1] - time_steps[t]
     #     temp_exchange = kappa * (T_diff[t, 0] - T_diff[t, 1]) # (W m⁻²)
     #     dTdt[t] = np.array([
     #       rf_net[t] - T_diff[t, 0] / lambda_param - temp_exchange,
@@ -575,19 +548,18 @@ def part2():
     
     # Task 10a
     # "Test the model by analyzing the temperature response based on a radiative forcing step of 1 W/m2"
-    T = 10**4
+    T = 10**3
     t_test = np.arange(0, T)
     rf_test = np.zeros_like(t_test, dtype=np.float64) + 1
-    plt.title("Task 10a - Temperature response")
+    plt.title("Temperature response (Task T0a)")
     T_diff, _ = simulate_temp(t_test, rf_test)
     plot_T_diff(t_test, T_diff)
     show_plot("t10a")
 
     # Task 10b:
     # - "nalyze the effect of the climate sensitivity parameter 𝜆 and the exchange coefficient κ on the time required to reach equilibrium temperature"
-    plt.title("Task 10b - Temperature response for different lambdas")
+    plt.title("Temperature response for different lambdas (Task T0b)")
     lambda_params = np.array([0.5, 0.8, 1.3])
-    colors = plt.cm.jet(np.linspace(0, 1, len(lambda_params)))
     for idx in range(len(lambda_params)):
       lambda_param = lambda_params[idx]
       color = colors[idx]
@@ -595,10 +567,9 @@ def part2():
       plot_T_diff(t_test, T_diff, lambda_param=lambda_param, color=color, label_suffix=f", lambda={lambda_param}")
     show_plot("t10b")
 
-    plt.title("Task 10b - Temperature response for different kappas")
+    plt.title("Temperature response for different kappas (Task T0b)")
     lambda_param = 0.8
     kappas = np.array([0.2, 0.5, 1])
-    colors = plt.cm.jet(np.linspace(0, 1, len(kappas)))
     for idx in range(len(kappas)):
       kappa = kappas[idx]
       color = colors[idx]
@@ -630,9 +601,9 @@ def part2():
         plt.xlabel("Years")
         plt.ylabel("W/m²")
         if idx == 2:
-          plt.title(f"Energy flux, lambda={lambda_param}")
+          plt.title(f"Energy flux, lambda={lambda_param} (task T0c)")
         else:
-          plt.title(f"Energy flux, kappa={kappa}")
+          plt.title(f"Energy flux, kappa={kappa} (task T0c)")
         plt.legend()
         show_plot(f"t10c{(idx+1)//3}")
     
@@ -664,6 +635,7 @@ def part3():
     plt.plot(absolute_time_steps, T_diff[:, 0], label="Simulation")
     plt.plot(T_diff_data_t, T_diff_data, label="NASA's estimate")
     plt.legend()
+    plt.title("(Task T1)")
     show_plot("t11a")
     
   def task12():
