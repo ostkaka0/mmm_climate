@@ -666,35 +666,61 @@ def part3():
     #   i. "CO2 decrease linearly to zero by 2070" and continue to decrease(negative) til 2100. After 2100 CO2 emissions are constant.
     #   ii. CO2 emissions remain constant with current levels
     #   iii. CO2 emissions increase linearly until 2100 where it reach 200% of current emissions. After 2100 emissions are constant.
-    # lambda_param = 0.8 # (K/(W/m²))
-    # kappas = 1234
+    ## Task 12b
+    # - "How much does the temperature increase over the century relative to pre-industrial levels in the three cases i–iii? Illustrate in a figure."
+    # Note: We use the same figure for 12a and 12b by using tempatures relative to year 2026. Note that historic temperatures are also modelled, so a side-effect of that is when plotting for different choices of lambda that the relative historic temperatures differ. We could instead have used historic temperature data, but that's now how I interpreted the task instructions.
+    ## Task 12c:
+    # Q: "How large is the spread in temperature responses by 2100 in the three cases i–iii, given the uncertainty in the climate sensitivity parameter λ (along with estimates of s and κ that provide a good fit to historical temperatures)? Illustrate in a figure"
+    # A:
+    # Lambda = 0.5:
+    #   Case i   : -0.6567058247979604 Kelvin
+    #   Case ii  : 0.48383368157143203 Kelvin
+    #   Case iii : 2.3523441588126595 Kelvin
+    #   Case base: 0.9923036756775842 Kelvin
+    # Lambda = 0.8:
+    #   Case i   : -0.826434850184985 Kelvin
+    #   Case ii  : 0.7751317455115396 Kelvin
+    #   Case iii : 3.427289467650601 Kelvin
+    #   Case base: 1.502742846266028 Kelvin
+    # Lambda = 1.3:
+    #   Case i   : -0.9717726102986739 Kelvin
+    #   Case ii  : 1.1877800819853723 Kelvin
+    #   Case iii : 4.810452003685235 Kelvin
+    #   Case base: 2.19245491094167 Kelvin
+    # where base means the scenario given by koncentrationerRCP45.scv
+    # So the spread of temperatures are:
+    #   Case i   : 1.8050831461123709 Kelvin
+    #   Case ii  : 0.35446954617167536 Kelvin
+    #   Case iii : 3.9771414678715384 Kelvin
+    #   Case base: 1.3591443751279733 Kelvin
+
     s = 1
     curr_year = 2026
     target_year = 2070
-    curr_P_co2 = P_co2_data[curr_year - start_year]
+    curr_P_co2 = P_co2_data[curr_year-start_year]
     our_time_steps = np.arange(0, 2200-start_year+1)
     # future_time_steps = out_time_steps[curr_year-start_year:]
 
-    P_co2_base = P_co2_data[:2200-start_year+1]
+    P_co2 = P_co2_data[:2200-start_year+1]
     # Scenario (i)
-    P_co2_i = P_co2_base.copy()
-    P_co2_i[curr_year-start_year:] = curr_P_co2 * (1 - np.arange(2200-curr_year+1)/(target_year-curr_year)) # Linearly decreasing emissions from curr_year to 0 at year 2070, and continuing to decrease thereafter.
+    P_co2_i = P_co2.copy()
+    P_co2_i[curr_year-start_year:] = curr_P_co2 * np.linspace(1, 0, 2200-curr_year+1) # Linearly decreasing emissions from curr_year to 0 at year 2070, and continuing to decrease thereafter.
     P_co2_i[2100-start_year:] = P_co2_i[2100-start_year] # Constant emissions after   2100
     # Scenario (ii)
-    P_co2_ii = P_co2_base.copy()
+    P_co2_ii = P_co2.copy()
     P_co2_ii[curr_year-start_year:] = curr_P_co2
     # Scenario (iii)
-    P_co2_iii = P_co2_base.copy()
-    P_co2_iii[curr_year-start_year:] = curr_P_co2 * (1 + 1.4*np.arange(2200-curr_year+1)/(2100-curr_year))
+    P_co2_iii = P_co2.copy()
+    P_co2_iii[curr_year-start_year:2100-start_year] = curr_P_co2 * np.linspace(1, 2.4, 2100-curr_year)
     P_co2_iii[2100-start_year:] = 2.4*curr_P_co2 # Constant emissions after   2100
 
     plt.plot(start_year + our_time_steps, P_co2_i  , label="Scenario i")
     plt.plot(start_year + our_time_steps, P_co2_ii , label="Scenario ii")
     plt.plot(start_year + our_time_steps, P_co2_iii, label="Scenario iii")
-    plt.plot(start_year + our_time_steps, P_co2_base, c="black", label="koncentrationerRCP45.csv")
-    plt.title(f"Debug plot P_co2 decreasing after from {curr_year} to {target_year}")
+    plt.plot(start_year + our_time_steps, P_co2, c="black", label="koncentrationerRCP45.csv")
+    plt.title(f"CO2 concentration by scenario (Task 12)")
     plt.legend()
-    plt.show()
+    show_plot("12_P_co2")
 
     rf_aerosols = rf_data_aerosols[:2200-start_year+1]
     rf_other    = rf_data_other[:2200-start_year+1]
@@ -702,33 +728,42 @@ def part3():
     rf_co2_i    = calc_rf_co2(P_co2_i)
     rf_co2_ii   = calc_rf_co2(P_co2_ii)
     rf_co2_iii  = calc_rf_co2(P_co2_iii)
-    rf_co2_base = calc_rf_co2(P_co2_base)
+    rf_co2 = calc_rf_co2(P_co2)
     rf_net_i    = rf_co2_i    + s * rf_aerosols + rf_other
     rf_net_ii   = rf_co2_ii   + s * rf_aerosols + rf_other
     rf_net_iii  = rf_co2_iii  + s * rf_aerosols + rf_other
-    rf_net_base = rf_co2_base + s * rf_aerosols + rf_other
+    rf_net = rf_co2 + s * rf_aerosols + rf_other
 
     plt.plot(start_year + our_time_steps, rf_co2_i  , label="Scenario i")
     plt.plot(start_year + our_time_steps, rf_co2_ii , label="Scenario ii")
     plt.plot(start_year + our_time_steps, rf_co2_iii, label="Scenario iii")
-    plt.plot(start_year + our_time_steps, rf_co2_base, label="koncentrationerRCP45.csv")
+    plt.plot(start_year + our_time_steps, rf_co2, label="koncentrationerRCP45.csv")
     plt.legend()
-    plt.title("rf_co2")
-    plt.show()
+    plt.title("Radiative forcing by CO2 (Task 12)")
+    show_plot("12_rf_co2")
     plt.plot(start_year + our_time_steps, rf_net_i  , label="Scenario i")
     plt.plot(start_year + our_time_steps, rf_net_ii , label="Scenario ii")
     plt.plot(start_year + our_time_steps, rf_net_iii, label="Scenario iii")
-    plt.plot(start_year + our_time_steps, rf_net_base, label="koncentraaaationnerRCP45.csv")
+    plt.plot(start_year + our_time_steps, rf_net, label="koncentraaaationnerRCP45.csv")
     plt.legend()
-    plt.title("rf_net")
-    plt.show()
+    plt.title("Net radiative forcing (Task 12)")
+    show_plot("12_rf_net")
 
+    print("How much does the temperature increase from 2000 to 2100?")
+
+    min_rel_temps = np.zeros((4))
+    max_rel_temps = np.zeros((4))
     lambdas = [0.5, 0.8, 1.3]
     for lambda_idx, lambda_param in enumerate(lambdas):
       T_diff_i   , dTdt_i    = simulate_temp(our_time_steps, rf_net_i   , lambda_param)
       T_diff_ii  , dTdt_ii   = simulate_temp(our_time_steps, rf_net_ii  , lambda_param)
       T_diff_iii , dTdt_iii  = simulate_temp(our_time_steps, rf_net_iii , lambda_param)
-      T_diff_base, dTdt_base = simulate_temp(our_time_steps, rf_net_base, lambda_param)
+      T_diff, dTdt = simulate_temp(our_time_steps, rf_net, lambda_param)
+      # Make the temperatures relative to the curren_year.
+      T_diff_i   -= T_diff[curr_year-start_year]
+      T_diff_ii  -= T_diff[curr_year-start_year]
+      T_diff_iii -= T_diff[curr_year-start_year]
+      T_diff     -= T_diff[curr_year-start_year]
 
       plt.plot(start_year + our_time_steps, T_diff_i   [:,0],
         c=colors[0],
@@ -745,39 +780,41 @@ def part3():
         label="Scenario iii"
           if lambda_idx == 1 else None,
         linestyle="-" if lambda_idx == 1 else ":")
-      plt.plot(start_year + our_time_steps, T_diff_base[:,0],
+      plt.plot(start_year + our_time_steps, T_diff     [:,0],
         c="black",
         label="_"
           if lambda_idx == 1 else None,
         linestyle="-" if lambda_idx == 1 else ":")
-    plt.title("T_diff")
+
+      print(f"Lambda = {lambda_param}:")
+      
+      print("  Case i   :", T_diff_i[2100-start_year, 0] - T_diff_i[2000-start_year, 0], "Kelvin")
+      print("  Case ii  :", T_diff_ii[2100-start_year, 0] - T_diff_ii[2000-start_year, 0], "Kelvin")
+      print("  Case iii :", T_diff_iii[2100-start_year, 0] - T_diff_iii[2000-start_year, 0], "Kelvin")
+      print("  Case base:", T_diff[2100-start_year, 0] - T_diff[2000-start_year, 0], "Kelvin")
+
+      min_rel_temps = np.minimum(min_rel_temps, [T_diff[2100-start_year, 0], T_diff_i[2100-start_year, 0], T_diff_ii[2100-start_year, 0], T_diff_iii[2100-start_year, 0]])
+      max_rel_temps = np.maximum(max_rel_temps, [T_diff[2100-start_year, 0], T_diff_i[2100-start_year, 0], T_diff_ii[2100-start_year, 0], T_diff_iii[2100-start_year, 0]])
+    plt.title("Temperature change by scenario")
     plt.legend()
-    plt.show()
+    show_plot("12_t")
 
-    print("How much does the temperature increase from 2000 to 2100?")
-    print("Case i   :", T_diff_i[2100-start_year, 0] - T_diff_i[2000-start_year, 0], "Kelvin")
-    print("Case ii  :", T_diff_ii[2100-start_year, 0] - T_diff_ii[2000-start_year, 0], "Kelvin")
-    print("Case iii :", T_diff_iii[2100-start_year, 0] - T_diff_iii[2000-start_year, 0], "Kelvin")
-    print("Case base:", T_diff_base[2100-start_year, 0] - T_diff_base[2000-start_year, 0], "Kelvin")
-    
-
-
-    # misunderstood 12a (i) here:
-    # curr_year_idx = curr_year - start_year
-    # P_co2 = P_co2_data
-    # curr_P_co2 = P_co2[curr_year_idx]
-    # P_co2[curr_year_idx:] = curr_P_co2 * (1 - np.arange(0, end_year+1-curr_year)/(target_year+1-target_year)) # Linearly decreasing emissions from curr_year to 0 at year 2070, and continuing thereafter. 
-    # P_co2[2100-start_year:] = P_co2[2100-start_year] # Constant emissions after   2100
+    print("So the spread of temperatures are:")
+    print("  Case i   :", max_rel_temps[1] - min_rel_temps[1], "Kelvin")
+    print("  Case ii  :", max_rel_temps[2] - min_rel_temps[2], "Kelvin")
+    print("  Case iii :", max_rel_temps[3] - min_rel_temps[3], "Kelvin")
+    print("  Case base:", max_rel_temps[0] - min_rel_temps[0], "Kelvin")
 
     
 
-    ## Task 12b
-    # Q: "How much does the temperature increase over the century relative to pre-industrial levels in the three cases i–iii? Illustrate in a figure."
-    # A:
+    
+    
+  
+    
+    
+    
 
-    ## Task 12c:
-    # Q: "How large is the spread in temperature responses by 2100 in the three cases i–iii, given the uncertainty in the climate sensitivity parameter λ (along with estimates of s and κ that provide a good fit to historical temperatures)? Illustrate in a figure"
-    # A:
+    
 
     ## Task 12d:
     # Q: "s you may now observe, temperature projections for 2100 can vary significantly due to both uncertainties in the climate system (mainly due to   λ , but also   s   and   κ ) and our choices regarding CO₂ emissions. Given this uncertainty, how should we think about how much CO₂ emissions should be reduced in the coming decades to meet the climate goals of the Paris Agreement? Use the Konjunkturrådets report and texts on sustainable development as inspiration for your reasoning"     
@@ -787,17 +824,49 @@ def part3():
     # Q: "The low emissions scenario has negative CO2 emissions towards the end of the century. How can such negative CO2 emissions be materialised? Negative CO2 emissions tend to lead to a peak and decline in global mean surface temperature (make a plot to verify that this is the case). In what way are such temperature pathways relevant for reaching the temperature goals stated in the Paris Agreement?" 
     # A:
 
-  # def task13():
+  def task13():
     ## Task 13a:
     # Q: "Simulating the Termination of Geoengineering. Analyze what would happen if geoengineering were  implemented for a period but then, for some reason, abruptly stopped. Test a scenario where incoming solar radiation is reduced by 4 W/m² from 2050 to 2100. What would happen to global mean temperature in such a scenario (over the entire period up to 2200)?"
     # A:
+    s = 1
+    curr_year = 2026
+    target_year = 2070
+    curr_P_co2 = P_co2_data[curr_year - start_year]
+    our_time_steps = np.arange(0, 2200-start_year+1)
+    # future_time_steps = out_time_steps[curr_year-start_year:]
+
+    P_co2 = P_co2_data[:2200-start_year+1]
+
+    rf_aerosols    = rf_data_aerosols[:2200-start_year+1]
+    rf_aerosols_ge = rf_aerosols.copy()
+    rf_aerosols_ge[2050-start_year:2100-start_year] -= 4 # reduced by 4 W/m² from 2050 to 2100
+    rf_other    = rf_data_other[:2200-start_year+1]
+    rf_co2 = rf_data_co2[:2200-start_year+1]
+    rf_net = rf_co2 + s * rf_aerosols + rf_other
+    rf_net_ge = rf_co2 + s * rf_aerosols_ge + rf_other
+
+    plt.plot(start_year + our_time_steps, rf_net_ge, label="Geoengineering")
+    plt.plot(start_year + our_time_steps, rf_net, label="Base case")
+    plt.legend()
+    plt.title("Geoengineering - Radiative forcing (Task 13)")
+    show_plot("t13_rf_net")
+
+    T_diff, dTdt = simulate_temp(our_time_steps, rf_net)
+    T_diff_ge, dTdt_ge = simulate_temp(our_time_steps, rf_net_ge)
+    plt.plot(start_year + our_time_steps, T_diff_ge[:,0], label="Geoengineering")
+    plt.plot(start_year + our_time_steps, T_diff[:,0]   , label="Base case")
+    plt.title("Geoengineering - Temperature response")
+    plt.legend()
+    show_plot("t13_t")
+
 
     ## Task 13b:
-    # Q: "Geoengineering from a Sustainable Development Perspective. Critically discuss the feasibility of  geoengineering as a climate change response from the perspective of sustainable development. In your discussion, compare geoengineering with strategies for reducing CO₂ emissions in the energy system, including the rol e of negative CO₂ emissions. Evaluate the extent to which geoengineering is consistent with long-term climate objectives and the core principles of sustainable development. Draw on course materials, including the texts on sustainable development, to frame and support your analysis."   
+    # Q: "Geoengineering from a Sustainable Development Perspective. Critically discuss the feasibility of  geoengineering as a climate change response from the perspective of sustainable development. In your discussion, compare geoengineering with strategies for reducing CO₂ emissions in the energy system, including the role of negative CO₂ emissions. Evaluate the extent to which geoengineering is consistent with long-term climate objectives and the core principles of sustainable development. Draw on course materials, including the texts on sustainable development, to frame and support your analysis."   
     # A:
     
   if args.q in (0, 11): task11()
   if args.q in (0, 12): task12()
+  if args.q in (0, 13): task13()
 
 
 ## Do tasks
