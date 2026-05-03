@@ -180,8 +180,9 @@ def simulate_carbon_balance(k=k_default, beta=beta_default):
 ################################################################################
 # Radiative forcing
 ################################################################################
+P_co2_0 = 278.05158 # co2 level 1765 ("preindustrialization")
 def calc_rf_co2(P_co2):
-  rf_co2 = 5.35 * np.log((P_co2/P_co2[0]))
+  rf_co2 = 5.35 * np.log((P_co2/P_co2_0))
   # rf_co2 = np.zeros_like(time_steps, dtype=np.float64)
   # for t in time_steps:
   #   rf_co2     [t] = 5.35 * np.log((P_co2     [t]/P_co2_0))
@@ -189,6 +190,8 @@ def calc_rf_co2(P_co2):
   return rf_co2
 
 ## The energy balance model
+lambda_default = 0.8
+kappa_default = 0.5
 c_jl = 4186 # (J/kg)/K Specific heat capacity of water using Joule units.
 c = c_jl / (3600 * 24 * 365.25) # ((W yr / kg)/K) Same as c_jl, but with the prefered units.
 rho = 1020 # (kg/m³) Density of water
@@ -199,7 +202,7 @@ C = np.array([c * h * rho, c * d * rho]) # (W yr / kg / K * m * kg / m³ =
 
 # time_steps - Time in yrs
 # rf_net - Net radiative forcing in (W/m²)
-def simulate_temp(time_steps, rf_net, lambda_param=0.8, kappa=0.5):
+def simulate_temp(time_steps, rf_net, lambda_param=lambda_default, kappa=kappa_default):
   # T_diff - Temperature difference since preindustrial times in Kelvin
   dTdt = np.zeros((len(time_steps), 2), dtype=np.float64)
   T_diff = np.zeros((len(time_steps), 2), dtype=np.float64)
@@ -211,7 +214,6 @@ def simulate_temp(time_steps, rf_net, lambda_param=0.8, kappa=0.5):
   ]) / C # (K/yr)
   
   for t in range(1, len(time_steps)):
-    print("t =", t)
     T_diff[t] = T_diff[t-1] + dTdt[t-1] * dt # (Kelvin)
     temp_exchange = kappa * (T_diff[t,0] - T_diff[t,1]) # (W m⁻²)
     dTdt[t] = np.array([
@@ -448,7 +450,7 @@ def part1():
     for idx in range(4):
       plt.plot(absolute_time_steps, B[:, idx] - B[0, idx], color=colors[idx], label=f"model, box={idx}({box_names[idx]}), k={k}, beta={beta}")
       plt.plot(absolute_time_steps, np.sum(B - B[0], axis=1), color=colors[4], label=(f"model, net carbon change" if idx==3 else None))
-    plt.plot(absolute_time_steps+1, np.cumsum(U), ":", color="black", label=f"Cumulative (prior) emissions")
+    plt.plot(absolute_time_steps, np.cumsum(U), ":", color="black", label=f"Cumulative (prior) emissions")
     plt.xlabel("Year")
     plt.ylabel("GtC")
     plt.title(f"Carbon change relative to pre-industrial times, beta={beta} (Task 7)")
@@ -500,30 +502,6 @@ def part2():
 
     lambda_param = None # (K W⁻¹ m²), climate sensitivity parameter 
     kappa = None # (W K⁻¹ m⁻²), exchange coefficition between box 1 and box 2
-    
-
-    # # time_steps - Time in yrs
-    # # rf_net - Net radiative forcing in (W/m²)
-    # def simulate(time_steps, rf_net, lambda_param=0.8, kappa=0.5):
-    #   # T_diff - Temperature difference since preindustrial times in Kelvin
-    #   dTdt = np.zeros((len(time_steps), 2), dtype=np.float64)
-    #   T_diff = np.zeros((len(time_steps), 2), dtype=np.float64)
-    #   T_diff[0] = [0, 0] # Initial conditions
-
-    #   # dTdt_arr = np.zeros((len(time_steps), 2), dtype=np.float64)
-    #   for t in range(len(time_steps) - 1):
-    #     temp_exchange = kappa * (T_diff[t, 0] - T_diff[t, 1]) # (W m⁻²)
-    #     dTdt[t] = np.array([
-    #       rf_net[t] - T_diff[t, 0] / lambda_param - temp_exchange,
-    #       temp_exchange
-    #     ]) / C # (K/yr)
-    #     T_diff[t+1] = T_diff[t] + dTdt[t] * dt # (Kelvin)
-        
-    #     # dTdt_arr[t+1] = dTdt
-    #   return T_diff, dTdt   
-    
-    
-    
 
     def plot_T_diff(time_steps, T_diff, lambda_param=0.8, kappa=0.5, label_suffix="", color=None):
       equilibrium = 1 * lambda_param # rf_net = 1 for all time_steps
@@ -536,13 +514,11 @@ def part2():
 
       plt.plot(T_diff[:,0], c=color, label = "Box 0(atomsphere + upper ocean)" + label_suffix)
       plt.plot(T_diff[:,1], c=color, linestyle="--", label = "Box 1(deep ocean)" + label_suffix)
-      # plt.plot(absolute_time_steps, dTdt_arr[:,0], label = "derivate of Box 0")
-      # plt.plot(absolute_time_steps, dTdt_arr[:,1], label = "derivate of Box 1")
       plt.hlines(equilibrium, time_steps[0], time_steps[-1], "black", linestyle=":")#, label="Equilibrium temperature difference" + label_suffix)
       plt.vlines(e_folding_time, 0, equilibrium, "black", linestyle=":")
       plt.xlabel("Year")
       plt.ylabel("Kelvin")
-      plt.text(0.5 * kappa*time_steps[-1], equilibrium+0.01, f"Folding time: {e_folding_time}") # Weird x coordinate because we don'time_steps want text to overlap
+      plt.text(0.5 * kappa*time_steps[-1], equilibrium+0.01, f"Folding time: {e_folding_time}") # Weird x coordinate because we don't want text to overlap
       plt.legend()
     
     
@@ -588,11 +564,9 @@ def part2():
       T_diff, dTdt = simulate_temp(t_test, rf_test, kappa=kappa, lambda_param=lambda_param)
       heat_energy_flux = np.array([C[0]*dTdt[:,0], C[1]*dTdt[:,1]]) # (W yr K⁻¹ m⁻²) * (K/yr) = W/m²
       total_heat_energy_flux = heat_energy_flux[0] + heat_energy_flux[1]
-      print("rf test", rf_test)
       in_flux = rf_test # W/m²
       out_flux = T_diff[:, 0] / lambda_param # K / (K W⁻¹ m²) = W/m²
       net_flux = in_flux - out_flux - total_heat_energy_flux
-      print(in_flux)
       plt.plot(t_test, total_heat_energy_flux, linestyle=":", color=color, label=f"heat energy flux kappa={kappa}, lambda={lambda_param}")
       plt.plot(t_test, out_flux, color=color, linestyle="-.", label=f"out, kappa={kappa}, lambda={lambda_param}")
       plt.plot(t_test, net_flux, color="black", label=f"net flux" if idx == 2 or idx == 5 else None)
@@ -612,43 +586,190 @@ def part2():
   if args.q in (0, 10): task10()
 
 def part3():
-  # TODO: Task 11a
-  # TODO: Task 11b
-  # TODO: Task 11c
+
+  ## Task 11:
+  # - Combine carbon caycle model with energy balance model
+  # - "Calculate the increase in global mean surface temperature for the period 1765–2024" (Same start-year as before, but different end-year)
+  # - "based on historical global CO₂ emissions   and the historical RF estimates for the other substances radiativeForcingRCP45.csv"
+  # - "Compare your results with NASA's estimated values for global temperature anomalies (see   NASA_GISS. csv ). NASA's time series shows the temperature increase over the period 1880–2019 relative to a reference period based on the average temperature from 1951 to 1980. Adjust your results so they are easily comparable to NASA’s dataset."
+  # Task 11a:
+  # Q: "How does the choice of reference period affect the results?"
+  # A: It simply change the relative temperature by a constant. Earlier reference periods would give us a relative temperature that is closer to that of the temperature relative to pre-industrial times.
+  # Q: "What would be an appropriate reference period if the goal is to describe temperature changes relative to pre-industrial times?"
+  # A: It would be before the industrial revolution, so maybe 1700-1800.
+  # Task 11b:
+  # Q: "Test different values for the climate sensitivity parameter   λ   (0.5, 0.8, and 1.3 K/W/m²). What happens?"
+  # A: 
+  # - "Adjust the exchange coefficient   κ   (for heat transfer between the surface and deep ocean) and the scaling factor   s   (for aerosol forcing) to find a model response that closely matches the observed temperature anomaly from NASA for each of the three   λ   values."
+  # Q: "What values of   κ   and   s   provide a good fit to NASA’s temperature series for each assumption of climate sensitivity"
+  # A: The default values given by the exercise I found to be pretty good.
+  # Task 11c:
+  # Q: "The parameters λ,   κ , and   s   all have uncertainties. Discuss the feasibility of statistically estimating these values from global temperature time series to reduce uncertainty intervals."
+  # A: I can think of several approaches:
+  #    - One very computationally expensive approach is to do do seperate simulations for different parameter choices, then pick the one with maximum likelihood. We could try to fit let's say a normal distribution to get a more precise estimate for each parameter.
+  #    - An optimization: Instead of doing entire simulations we only do a small number of steps for random time points, or we could either reduce the time period for simulation, or perhaps we could skip every 10 year in the simulation.
+  #    - Instead of testing a large number of possible parameter values we can treat it as a non-linear optimization problem, and perhaps use newton's method to search for ever better parameters. The problem with this appoach could be that would only find a local maximum for likelihood. 
+  #    - An approach based on bayesian inference. We could perhaps use method like Metropolis-Hastings algorithm to numerically calculate probability distributions for parameters.
   def task11():
-    betas = [0.25, 0.35, 0.45]
-    ks = [1e-3, k_default, 5e-6]
     s = 1
-    
+
+    ## Task 11a
     B = simulate_carbon_balance()
 
-    # Use .csv-data for rf_co2 from 1765 to 2024, then we use the rf_co2 acquired through simulation after 2024, but the radiative forcing from aerosols and other sources are given by the .csv-files for all time_steps.
-    P_co2 = co2_per_gtc * B[:,0]
-    rf_co2 = calc_rf_co2(P_co2)
-    t2024 = 2024 - start_year
-    print(t2024)
-    rf_co2[t2024:] = rf_data_co2[t2024]
-    rf_net = rf_co2 + s * rf_data_aerosols + rf_data_other
+    # We use .csv-data for rf_co2 from 1765 to 2024, then we use the rf_co2 acquired through simulation after 2024, but the radiative forcing from aerosols and other sources are given by the .csv-files for all time_steps.
+    t2025 = 2025 - start_year # We include the year 2024, so we simulate until 2025
+    our_time_steps = np.arange(2025-start_year)
+    rf_co2      = rf_data_co2[:t2025]
+    rf_aerosols = rf_data_aerosols[:t2025]
+    rf_other    = rf_data_other[:t2025]
+    rf_net      = rf_co2 + s * rf_aerosols + rf_other
     
-    T_diff, dTdt = simulate_temp(time_steps, rf_net)
+    T_diff, dTdt = simulate_temp(our_time_steps, rf_net)
 
-    plt.plot(absolute_time_steps, T_diff[:, 0], label="Simulation")
+    avg_at_ref_period = np.average(T_diff[1951-start_year : 1981-start_year, 0])
+    T_diff -= avg_at_ref_period
+
+    plt.plot(start_year + our_time_steps, T_diff[:,0], label="Simulation")
     plt.plot(T_diff_data_t, T_diff_data, label="NASA's estimate")
     plt.legend()
     plt.title("(Task T1)")
     show_plot("t11a")
-    
-  def task12():
 
+    ## Task 11b
+    lambdas = [0.5, 0.8, 1.3] # Given by exercise
+    kappas  = [0.5, 0.5, 0.5] # Picked by hand to fit the data based on lambdas
+    s_vals  = [1, 1, 1] # Also picked by hand
+    for idx in range(3):
+      lambda_param = lambdas[idx]
+      kappa = kappas[idx]
+      s = s_vals[idx]
+
+      rf_net = rf_co2 + s * rf_aerosols + rf_other
+      
+      B = simulate_carbon_balance()
+      
+      T_diff, dTdt = simulate_temp(our_time_steps, rf_net, lambda_param=lambda_param, kappa=kappa)
+      avg_at_ref_period = np.average(T_diff[1951-start_year : 1981-start_year, 0])
+      T_diff -= avg_at_ref_period
+
+      plt.plot(start_year + our_time_steps, T_diff[:,0], label="Simulation")
+      plt.plot(T_diff_data_t, T_diff_data, label="NASA's estimate")
+      plt.legend()
+      plt.title(f"lambda = {lambda_param}, kappa={kappa}, s={s} (Task T1)")
+      show_plot(f"t11b{idx}")
+
+  # "Test different future CO₂ emission scenarios along with a scenario for radiative forcing from other climate-affecting substances, based on   radiativeForcingRCP45.csv , a "middle of the road" scenario that we will use in combination with various CO₂ emission scenarios."
+  def task12():
     ## Task 12a
     # - Use lambda=0.8 and use kappa & s that were a good fit from task 11
     # - Generate and present temperature projections from 1765 to 2100 under the following scenarios:
     #   i. "CO2 decrease linearly to zero by 2070" and continue to decrease(negative) til 2100. After 2100 CO2 emissions are constant.
     #   ii. CO2 emissions remain constant with current levels
     #   iii. CO2 emissions increase linearly until 2100 where it reach 200% of current emissions. After 2100 emissions are constant.
-    lambda_param = 0.8 # (K/(W/m²))
-    kappas = 1234
-    s = 1234
+    # lambda_param = 0.8 # (K/(W/m²))
+    # kappas = 1234
+    s = 1
+    curr_year = 2026
+    target_year = 2070
+    curr_P_co2 = P_co2_data[curr_year - start_year]
+    our_time_steps = np.arange(0, 2200-start_year+1)
+    # future_time_steps = out_time_steps[curr_year-start_year:]
+
+    P_co2_base = P_co2_data[:2200-start_year+1]
+    # Scenario (i)
+    P_co2_i = P_co2_base.copy()
+    P_co2_i[curr_year-start_year:] = curr_P_co2 * (1 - np.arange(2200-curr_year+1)/(target_year-curr_year)) # Linearly decreasing emissions from curr_year to 0 at year 2070, and continuing to decrease thereafter.
+    P_co2_i[2100-start_year:] = P_co2_i[2100-start_year] # Constant emissions after   2100
+    # Scenario (ii)
+    P_co2_ii = P_co2_base.copy()
+    P_co2_ii[curr_year-start_year:] = curr_P_co2
+    # Scenario (iii)
+    P_co2_iii = P_co2_base.copy()
+    P_co2_iii[curr_year-start_year:] = curr_P_co2 * (1 + 1.4*np.arange(2200-curr_year+1)/(2100-curr_year))
+    P_co2_iii[2100-start_year:] = 2.4*curr_P_co2 # Constant emissions after   2100
+
+    plt.plot(start_year + our_time_steps, P_co2_i  , label="Scenario i")
+    plt.plot(start_year + our_time_steps, P_co2_ii , label="Scenario ii")
+    plt.plot(start_year + our_time_steps, P_co2_iii, label="Scenario iii")
+    plt.plot(start_year + our_time_steps, P_co2_base, c="black", label="koncentrationerRCP45.csv")
+    plt.title(f"Debug plot P_co2 decreasing after from {curr_year} to {target_year}")
+    plt.legend()
+    plt.show()
+
+    rf_aerosols = rf_data_aerosols[:2200-start_year+1]
+    rf_other    = rf_data_other[:2200-start_year+1]
+
+    rf_co2_i    = calc_rf_co2(P_co2_i)
+    rf_co2_ii   = calc_rf_co2(P_co2_ii)
+    rf_co2_iii  = calc_rf_co2(P_co2_iii)
+    rf_co2_base = calc_rf_co2(P_co2_base)
+    rf_net_i    = rf_co2_i    + s * rf_aerosols + rf_other
+    rf_net_ii   = rf_co2_ii   + s * rf_aerosols + rf_other
+    rf_net_iii  = rf_co2_iii  + s * rf_aerosols + rf_other
+    rf_net_base = rf_co2_base + s * rf_aerosols + rf_other
+
+    plt.plot(start_year + our_time_steps, rf_co2_i  , label="Scenario i")
+    plt.plot(start_year + our_time_steps, rf_co2_ii , label="Scenario ii")
+    plt.plot(start_year + our_time_steps, rf_co2_iii, label="Scenario iii")
+    plt.plot(start_year + our_time_steps, rf_co2_base, label="koncentrationerRCP45.csv")
+    plt.legend()
+    plt.title("rf_co2")
+    plt.show()
+    plt.plot(start_year + our_time_steps, rf_net_i  , label="Scenario i")
+    plt.plot(start_year + our_time_steps, rf_net_ii , label="Scenario ii")
+    plt.plot(start_year + our_time_steps, rf_net_iii, label="Scenario iii")
+    plt.plot(start_year + our_time_steps, rf_net_base, label="koncentraaaationnerRCP45.csv")
+    plt.legend()
+    plt.title("rf_net")
+    plt.show()
+
+    lambdas = [0.5, 0.8, 1.3]
+    for lambda_idx, lambda_param in enumerate(lambdas):
+      T_diff_i   , dTdt_i    = simulate_temp(our_time_steps, rf_net_i   , lambda_param)
+      T_diff_ii  , dTdt_ii   = simulate_temp(our_time_steps, rf_net_ii  , lambda_param)
+      T_diff_iii , dTdt_iii  = simulate_temp(our_time_steps, rf_net_iii , lambda_param)
+      T_diff_base, dTdt_base = simulate_temp(our_time_steps, rf_net_base, lambda_param)
+
+      plt.plot(start_year + our_time_steps, T_diff_i   [:,0],
+        c=colors[0],
+        label="Scenario i"
+          if lambda_idx == 1 else None,
+        linestyle="-" if lambda_idx == 1 else ":")
+      plt.plot(start_year + our_time_steps, T_diff_ii  [:,0],
+        c=colors[1],
+        label="Scenario ii"
+          if lambda_idx == 1 else None,
+        linestyle="-" if lambda_idx == 1 else ":")
+      plt.plot(start_year + our_time_steps, T_diff_iii [:,0],
+        c=colors[2],
+        label="Scenario iii"
+          if lambda_idx == 1 else None,
+        linestyle="-" if lambda_idx == 1 else ":")
+      plt.plot(start_year + our_time_steps, T_diff_base[:,0],
+        c="black",
+        label="_"
+          if lambda_idx == 1 else None,
+        linestyle="-" if lambda_idx == 1 else ":")
+    plt.title("T_diff")
+    plt.legend()
+    plt.show()
+
+    print("How much does the temperature increase from 2000 to 2100?")
+    print("Case i   :", T_diff_i[2100-start_year, 0] - T_diff_i[2000-start_year, 0], "Kelvin")
+    print("Case ii  :", T_diff_ii[2100-start_year, 0] - T_diff_ii[2000-start_year, 0], "Kelvin")
+    print("Case iii :", T_diff_iii[2100-start_year, 0] - T_diff_iii[2000-start_year, 0], "Kelvin")
+    print("Case base:", T_diff_base[2100-start_year, 0] - T_diff_base[2000-start_year, 0], "Kelvin")
+    
+
+
+    # misunderstood 12a (i) here:
+    # curr_year_idx = curr_year - start_year
+    # P_co2 = P_co2_data
+    # curr_P_co2 = P_co2[curr_year_idx]
+    # P_co2[curr_year_idx:] = curr_P_co2 * (1 - np.arange(0, end_year+1-curr_year)/(target_year+1-target_year)) # Linearly decreasing emissions from curr_year to 0 at year 2070, and continuing thereafter. 
+    # P_co2[2100-start_year:] = P_co2[2100-start_year] # Constant emissions after   2100
+
+    
 
     ## Task 12b
     # Q: "How much does the temperature increase over the century relative to pre-industrial levels in the three cases i–iii? Illustrate in a figure."
@@ -676,6 +797,7 @@ def part3():
     # A:
     
   if args.q in (0, 11): task11()
+  if args.q in (0, 12): task12()
 
 
 ## Do tasks
