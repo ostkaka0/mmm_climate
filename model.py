@@ -8,6 +8,7 @@ import os
 # Helper function to save plots to .pdf-files
 def show_plot(name):
   filepath = f"plots/{name}.pdf"
+  print("Plotting", filepath)
   plt.savefig(filepath, format="pdf")
   plt.show()
 
@@ -153,7 +154,7 @@ def O(t, U, cumulative_Us, k=k_default):
 # Combined model(box and impulse model)
 ################################################################################
 # The final carbon balance model where we extend the basic box-model with the impulse-response model for oceanic absorption of carbon(co2).
-def simulate_carbon_balance(k=k_default, beta=beta_default):
+def simulate_carbon_balance(time_steps, U, k=k_default, beta=beta_default):
   cumulative_Us = np.zeros_like(time_steps, dtype=np.float64)
   B = np.zeros((len(time_steps), 4))
   net_emissions = np.zeros(len(time_steps))
@@ -438,7 +439,7 @@ def part1():
     # 6 and half of 7
     for k_idx, k in enumerate(ks):
       for beta_idx, beta in enumerate(betas):
-        B = simulate_carbon_balance(k, beta)
+        B = simulate_carbon_balance(time_steps, U, k, beta)
         co2 = co2_per_gtc * B[:, 0]
         plt.plot(absolute_time_steps, co2, color=colors[k_idx], linestyle=styles[beta_idx], label=f"model, k={k}, beta={beta}")
     plt.plot(absolute_time_steps, P_co2_data, "black", linestyle="-", label="koncentrationerRCP4.csv")
@@ -448,7 +449,7 @@ def part1():
     # Last part of 7
     k = ks[1]
     beta = betas[1]
-    B = simulate_carbon_balance(k, beta)
+    B = simulate_carbon_balance(time_steps, U, k=k, beta=beta)
     for idx in range(4):
       plt.plot(absolute_time_steps, B[:, idx] - B[0, idx], color=colors[idx], label=f"model, box={idx}({box_names[idx]}), k={k}, beta={beta}")
       plt.plot(absolute_time_steps, np.sum(B - B[0], axis=1), color=colors[4], label=(f"model, net carbon change" if idx==3 else None))
@@ -626,7 +627,7 @@ def part3():
     s = 1
 
     ## Task 11a
-    B = simulate_carbon_balance()
+    B = simulate_carbon_balance(time_steps, U)
 
     # We use .csv-data for rf_co2 from 1765 to 2024, then we use the rf_co2 acquired through simulation after 2024, but the radiative forcing from aerosols and other sources are given by the .csv-files for all time_steps.
     t2025 = 2025 - start_year # We include the year 2024, so we simulate until 2025
@@ -656,7 +657,7 @@ def part3():
 
       rf_net = rf_co2 + s * rf_aerosols + rf_other
       
-      B = simulate_carbon_balance()
+      B = simulate_carbon_balance(time_steps, U)
       
       T_diff, dTdt = simulate_temp(our_time_steps, rf_net, lambda_param=lambda_param, kappa=kappa)
       avg_at_ref_period = np.average(T_diff[1951-start_year : 1981-start_year, 0])
@@ -711,29 +712,51 @@ def part3():
 
     target_year = 2070
     our_time_steps = np.arange(0, 2200-start_year+1)
+    curr_P_co2 = P_co2_data[curr_year - start_year]
+    curr_U = U[curr_year-start_year]
     # future_time_steps = out_time_steps[curr_year-start_year:]
 
-
-
-
-    P_co2 = P_co2_data[:2200-start_year+1]
+    U_base = U[:2200-start_year+1]
     # Scenario (i)
-    P_co2_i = P_co2.copy()
-    P_co2_i[curr_year-start_year:] = curr_P_co2 * (1 - np.arange(2200-curr_year+1) / (target_year-curr_year)) # Linearly decreasing emissions from curr_year to 0 at year 2070, and continuing to decrease thereafter.
-    P_co2_i[2100-start_year:] = P_co2_i[2100-start_year] # Constant emissions after   2100
+    U_i = U_base.copy()
+    U_i[curr_year-start_year:] = curr_U * (1 - np.arange(2200-curr_year+1) / (target_year-curr_year)) # Linearly decreasing emissions from curr_year to 0 at year 2070, and continuing to decrease thereafter.
+    U_i[2100-start_year:] = U_i[2100-start_year] # Constant emissions after   2100
     # Scenario (ii)
-    P_co2_ii = P_co2.copy()
-    P_co2_ii[curr_year-start_year:] = curr_P_co2
+    U_ii = U_base.copy()
+    U_ii[curr_year-start_year:] = curr_U
     # Scenario (iii)
-    P_co2_iii = P_co2.copy()
-    P_co2_iii[curr_year-start_year:2100-start_year] = curr_P_co2 * np.linspace(1, 2.4, 2100-curr_year)
-    P_co2_iii[2100-start_year:] = 2.4*curr_P_co2 # Constant emissions after   2100
+    U_iii = U_base.copy()
+    U_iii[curr_year-start_year:2100-start_year] = curr_U * np.linspace(1, 2.4, 2100-curr_year)
+    U_iii[2100-start_year:] = 2.4*curr_U # Constant emissions after   2100
+
+    plt.plot(start_year + our_time_steps, U_i  , label="Scenario i(low)")
+    plt.plot(start_year + our_time_steps, U_ii , label="Scenario ii(medium)")
+    plt.plot(start_year + our_time_steps, U_iii, label="Scenario iii(high)")
+    plt.plot(start_year + our_time_steps, U_base, c="black", label="utslappRCP45.csv")
+    plt.title(f"CO2 emissions by scenario (Task 12)")
+    plt.xlabel("Year")
+    plt.ylabel("GtC/yr")
+    plt.legend()
+    show_plot("12_U")
+
+    B_i   = simulate_carbon_balance(our_time_steps, U_i   )
+    B_ii  = simulate_carbon_balance(our_time_steps, U_ii  )
+    B_iii = simulate_carbon_balance(our_time_steps, U_iii )
+    B     = simulate_carbon_balance(our_time_steps, U_base)
+
+    
+    P_co2_i   = co2_per_gtc * B_i  [:,0]
+    P_co2_ii  = co2_per_gtc * B_ii [:,0]
+    P_co2_iii = co2_per_gtc * B_iii[:,0]
+    P_co2     = co2_per_gtc * B    [:,0]
 
     plt.plot(start_year + our_time_steps, P_co2_i  , label="Scenario i(low)")
     plt.plot(start_year + our_time_steps, P_co2_ii , label="Scenario ii(medium)")
     plt.plot(start_year + our_time_steps, P_co2_iii, label="Scenario iii(high)")
     plt.plot(start_year + our_time_steps, P_co2, c="black", label="koncentrationerRCP45.csv")
     plt.title(f"CO2 concentration by scenario (Task 12)")
+    plt.xlabel("Year")
+    plt.ylabel("GtC")
     plt.legend()
     # major_xticks = np.arange(1750, 2200, 10)
     # minor_xticks = np.arange(1750, 2200, 10)
@@ -881,7 +904,7 @@ def part3():
     s = 1
     curr_year = 2026
     target_year = 2070
-    curr_P_co2 = P_co2_data[curr_year - start_year]
+    
     our_time_steps = np.arange(0, 2200-start_year+1)
     # future_time_steps = out_time_steps[curr_year-start_year:]
 
