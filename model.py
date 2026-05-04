@@ -340,7 +340,7 @@ def part1():
     plt.plot(absolute_time_steps, P_co2_data, "black", linestyle=":", label="koncentrationerRCP4.csv")
     plt.xlabel("Year")
     plt.ylabel("ppm CO2")
-    plt.title("Atmospheric CO2 concentration by box model (Task 1)")
+    plt.title("Atmospheric CO2 concentration by box model")
     plt.legend()
     show_plot("t1b")
 
@@ -364,7 +364,7 @@ def part1():
       plt.plot(absolute_time_steps, co2, label=f"beta={beta}")
     # Plot CO2 concentration data for comparison
     plt.plot(absolute_time_steps, P_co2_data, "black", linestyle=":", label="koncentrationerRCP4.csv")
-    plt.title("Atmospheric CO² (Task 2)")
+    plt.title("Atmospheric CO²")
     plt.xlabel("Year")
     plt.ylabel("CO2")
     plt.legend()
@@ -378,7 +378,7 @@ def part1():
         B[t+1] = B[t] + dBdt_val * dt
       plt.plot(absolute_time_steps, B[:, 1], c=colors[beta_idx], linestyle="-", label=f"box 1, beta={beta}")
       plt.plot(absolute_time_steps, B[:, 2], c=colors[beta_idx], linestyle="--", label=f"box 2, beta={beta}")
-    plt.title("GtC for Box 1(biomass+upper soil) and Box 2(below ground)  (Task 2)")
+    plt.title("GtC for Box 1(biomass+upper soil) and Box 2(below ground) ")
     plt.xlabel("Year")
     plt.ylabel("GtC")
     plt.legend()
@@ -398,7 +398,7 @@ def part1():
     plt.xlabel("Time since emissions(year)")
     plt.ylabel("Proportion still in atmosphere")
     plt.legend()
-    plt.title("Impulse response for CO₂ based on earlier cumulative emissions (Task 3)")
+    plt.title("Impulse response for CO₂ based on earlier cumulative emissions")
     show_plot("t3a")
 
   # "Implement a model based on Equation 8 and run it using the emissions data from the file utslappRCP45.csv to calculate how atmospheric CO₂ concentration would have developed if carbon were only taken up by the ocean"
@@ -421,7 +421,7 @@ def part1():
     plt.plot(absolute_time_steps, P_co2_data, "black", label="koncentrationerRCP4.csv")
     plt.xlabel("Year")
     plt.ylabel("CO²")
-    plt.title("Atmospheric CO² by only modelling oceanic absorption (Task 4)")
+    plt.title("Atmospheric CO² by only modelling oceanic absorption")
     plt.legend()
     show_plot("t4a")
 
@@ -443,7 +443,7 @@ def part1():
         co2 = co2_per_gtc * B[:, 0]
         plt.plot(absolute_time_steps, co2, color=colors[k_idx], linestyle=styles[beta_idx], label=f"model, k={k}, beta={beta}")
     plt.plot(absolute_time_steps, P_co2_data, "black", linestyle="-", label="koncentrationerRCP4.csv")
-    plt.title(f"CO², beta={beta} (Task 6)")
+    plt.title(f"CO², beta={beta}")
     plt.legend()
     show_plot("t6a")
     # Last part of 7
@@ -456,7 +456,7 @@ def part1():
     plt.plot(absolute_time_steps, np.cumsum(U), ":", color="black", label=f"Cumulative (prior) emissions")
     plt.xlabel("Year")
     plt.ylabel("GtC")
-    plt.title(f"Carbon change relative to pre-industrial times, beta={beta} (Task 7)")
+    plt.title(f"Carbon change relative to pre-industrial times, beta={beta}")
     plt.legend()
     show_plot("t6b")
 
@@ -479,7 +479,7 @@ def part2():
     plt.plot(absolute_time_steps, rf_co2)
     plt.plot(absolute_time_steps, 5.35 * np.log(P_co2/P_co2_0), label="model")
     plt.plot(absolute_time_steps, rf_data_co2, label="radiativeForcingRCP45.csv")
-    plt.title("Radiative forcing (Task 8)")
+    plt.title("Radiative forcing")
     plt.legend()
     show_plot("t8a")
 
@@ -495,7 +495,7 @@ def part2():
     plt.ylabel("W/m²")
     plt.xlabel("Year")
     plt.legend()
-    plt.title("Radiative forcing (Task 9)")
+    plt.title("Radiative forcing")
     show_plot("t9a")
 
   
@@ -642,10 +642,12 @@ def part3():
     avg_at_ref_period = np.average(T_diff[1951-start_year : 1981-start_year, 0])
     T_diff -= avg_at_ref_period
 
-    plt.plot(start_year + our_time_steps, T_diff[:,0], label="Simulation")
+    plt.plot(start_year + our_time_steps, T_diff[:,0], label="Model")
     plt.plot(T_diff_data_t, T_diff_data, label="NASA's estimate")
     plt.legend()
-    plt.title("(Task 11)")
+    plt.xlabel("Year")
+    plt.ylabel("Kelvin")
+    plt.title("Temperature change(Reference period: 1951-1981)")
     show_plot("t11a")
 
     ## Task 11b
@@ -666,11 +668,10 @@ def part3():
       plt.plot(start_year + our_time_steps, T_diff[:,0], label=f"Simulation, lambda={lambda_param}, kappa={kappa}, s={s}")
     plt.plot(T_diff_data_t, T_diff_data, c="black", label="NASA's estimate")
     plt.legend()
-    plt.title(f"s={s} (Task 11)")
-    # major_xticks = np.arange(1750, 2200, 10)
-    # plt.xticks(major_xticks)
-    # plt.grid()
-    show_plot(f"t11b{idx}")
+    plt.xlabel("Year")
+    plt.ylabel("Kelvin")
+    plt.title("Temperature change (Reference period: 1951-1981)")
+    show_plot(f"t11b")
 
   # "Test different future CO₂ emission scenarios along with a scenario for radiative forcing from other climate-affecting substances, based on   radiativeForcingRCP45.csv , a "middle of the road" scenario that we will use in combination with various CO₂ emission scenarios."
   def task12():
@@ -683,32 +684,33 @@ def part3():
     # (default kappa & s was a good fit when lambda=0.8)
     ## Task 12b
     # - "How much does the temperature increase over the century relative to pre-industrial levels in the three cases i–iii? Illustrate in a figure."
-    # Note: We use the same figure for 12a and 12b. Note that historic temperatures are also modelled, so a side-effect of that is when plotting for different choices of lambda that the relative historic temperatures differ. We could instead have used historic temperature data, but that's now how I interpreted the task instructions.
+    # Note: We use the same figure for 12a and 12b. Note that historic temperatures are also modelled, so a side-effect of that is when plotting for different choices of lambda that the relative historic temperatures differ. We could instead have used historic temperature data.
     ## Task 12c:
     # Q: "How large is the spread in temperature responses by 2100 in the three cases i–iii, given the uncertainty in the climate sensitivity parameter λ (along with estimates of s and κ that provide a good fit to historical temperatures)? Illustrate in a figure"
     # A:
-    #How much does the temperature increase from 2000 to 2100?
-    # Lambda = 0.5:
-    #   Case i   : nan Kelvin
-    #   Case ii  : 0.3983840195495024 Kelvin
-    #   Case iii : 2.4524825115297695 Kelvin
-    #   Case base: 1.0361991838562488 Kelvin
-    # Lambda = 0.8:
-    #   Case i   : nan Kelvin
-    #   Case ii  : 0.6695785319054577 Kelvin
-    #   Case iii : 3.3318651019755854 Kelvin
-    #   Case base: 1.502742846266028 Kelvin
-    # Lambda = 1.3:
-    #   Case i   : nan Kelvin
-    #   Case ii  : 0.8111927709387111 Kelvin
-    #   Case iii : 3.124968479572815 Kelvin
-    #   Case base: 1.5447898594457556 Kelvin
+    # How much does the temperature increase from 2000 to 2100?
+    # Lambda = 0.5, kappa=0.25, s=0.8:
+    #   Case i   : 0.23199258910260023 Kelvin
+    #   Case ii  : 1.1864178609312046 Kelvin
+    #   Case iii : 1.849267857661696 Kelvin
+    #   Case base: 0.9530510200522642 Kelvin
+    # Lambda = 0.8, kappa=0.5, s=1:
+    #   Case i   : 0.47455526029075656 Kelvin
+    #   Case ii  : 1.689480877954029 Kelvin
+    #   Case iii : 2.53705838527684 Kelvin
+    #   Case base: 1.3974421240753105 Kelvin
+    # Lambda = 1.3, kappa=1.5, s=1.2:
+    #   Case i   : 0.6751600300232579 Kelvin
+    #   Case ii  : 1.7011883066221773 Kelvin
+    #   Case iii : 2.4192370972514183 Kelvin
+    #   Case base: 1.4654645386332825 Kelvin
+    # Plotting plots/12_t.pdf
     # So the spread of temperatures are:
-    #   Case i   : nan Kelvin
-    #   Case ii  : 1.6577513015997456 Kelvin
-    #   Case iii : 4.320037871669873 Kelvin
-    #   Case base: 2.490915615960316 Kelvin
-    # where base means the scenario given by koncentrationerRCP45.scv
+    #   Case i   : 1.5044782147746762 Kelvin
+    #   Case ii  : 2.7194038324379486 Kelvin
+    #   Case iii : 3.5669813397607593 Kelvin
+    #   Case base: 2.4273650785592302 Kelvin
+    # So about 1.5 to 3.5 Kelvin
 
     target_year = 2070
     our_time_steps = np.arange(0, 2200-start_year+1)
@@ -733,7 +735,7 @@ def part3():
     plt.plot(start_year + our_time_steps, U_ii , label="Scenario ii(medium)")
     plt.plot(start_year + our_time_steps, U_iii, label="Scenario iii(high)")
     plt.plot(start_year + our_time_steps, U_base, c="black", label="utslappRCP45.csv")
-    plt.title(f"CO2 emissions by scenario (Task 12)")
+    plt.title(f"CO2 emissions by scenario")
     plt.xlabel("Year")
     plt.ylabel("GtC/yr")
     plt.legend()
@@ -754,7 +756,7 @@ def part3():
     plt.plot(start_year + our_time_steps, P_co2_ii , label="Scenario ii(medium)")
     plt.plot(start_year + our_time_steps, P_co2_iii, label="Scenario iii(high)")
     plt.plot(start_year + our_time_steps, P_co2, c="black", label="koncentrationerRCP45.csv")
-    plt.title(f"CO2 concentration by scenario (Task 12)")
+    plt.title(f"CO2 concentration by scenario")
     plt.xlabel("Year")
     plt.ylabel("GtC")
     plt.legend()
@@ -792,14 +794,14 @@ def part3():
     # plt.grid(which="both")
     plt.xlabel("Year")
     plt.ylabel("W/m²")
-    plt.title("Radiative forcing by CO2 (Task 12)")
+    plt.title("Radiative forcing by CO2")
     show_plot("12_rf_co2")
     plt.plot(start_year + our_time_steps, rf_net_i  , label="Scenario i(low)")
     plt.plot(start_year + our_time_steps, rf_net_ii , label="Scenario ii(medium)")
     plt.plot(start_year + our_time_steps, rf_net_iii, label="Scenario iii(high)")
     plt.plot(start_year + our_time_steps, rf_net, label="koncentrationerRCP45.csv")
     plt.legend()
-    plt.title("Net radiative forcing (Task 12)")
+    plt.title("Net radiative forcing")
     # major_xticks = np.arange(1750, 2200, 10)
     # minor_xticks = np.arange(1750, 2200, 10)
     # plt.xticks(major_xticks)
@@ -852,8 +854,6 @@ def part3():
         linestyle="-" if idx == 1 else ":")
 
       print(f"Lambda = {lambda_param}, kappa={kappa}, s={s}:")
-      
-      print(T_diff_i[2100-start_year-1])
       print("  Case i   :", T_diff_i  [2100-start_year, 0] - T_diff_i[2000-start_year, 0], "Kelvin")
       print("  Case ii  :", T_diff_ii [2100-start_year, 0] - T_diff_ii[2000-start_year, 0], "Kelvin")
       print("  Case iii :", T_diff_iii[2100-start_year, 0] - T_diff_iii[2000-start_year, 0], "Kelvin")
@@ -890,17 +890,23 @@ def part3():
     
 
     ## Task 12d:
-    # Q: "s you may now observe, temperature projections for 2100 can vary significantly due to both uncertainties in the climate system (mainly due to   λ , but also   s   and   κ ) and our choices regarding CO₂ emissions. Given this uncertainty, how should we think about how much CO₂ emissions should be reduced in the coming decades to meet the climate goals of the Paris Agreement? Use the Konjunkturrådets report and texts on sustainable development as inspiration for your reasoning"     
+    # Q: "As you may now observe, temperature projections for 2100 can vary significantly due to both uncertainties in the climate system (mainly due to   λ , but also   s   and   κ ) and our choices regarding CO₂ emissions. Given this uncertainty, how should we think about how much CO₂ emissions should be reduced in the coming decades to meet the climate goals of the Paris Agreement? Use the Konjunkturrådets report and texts on sustainable development as inspiration for your reasoning"     
     # A:
+    # * Despite uncertainity, the temperature will at least increase to some degree which will affect the ecosystem, will cause economic damages in form of reduced food production due drought. The economic damages will outgrow the costs of measures to reduce CO2 so therefore those measures are still worth persuing.
+    # * We can also not assume the best case scenario will happen, the most likely scenario is a middle one where temperatures do increase by ~2-5 degrees, which will cause much larger damages to the ecosystem, food production, and economy. There will be an increase of flooding, powerful hurricanes, and an increased sealevel which will damage properties and cities near the coastlines.
+    # * Also there is a small but significant probability that the impact on climate will be worse than expected, which shouldn't be ignored.
+    # * Being realistic: I believe the "low" scenario is very unlikely. I would guess the results of good measures would be between "middle" and the scenario given by the .csv file, which would be in the range of 1.5 to 3 degree increase. Although maybe a 2.5 or 3 degree increase would be above the Paris agreement, the alternative of no intervention would perhaps go up to 4-6 degrees which would cause much greater damage to ecosystem, economy and our civilization.
 
     ## Task 12e:
     # Q: "The low emissions scenario has negative CO2 emissions towards the end of the century. How can such negative CO2 emissions be materialised? Negative CO2 emissions tend to lead to a peak and decline in global mean surface temperature (make a plot to verify that this is the case). In what way are such temperature pathways relevant for reaching the temperature goals stated in the Paris Agreement?" 
-    # A:
+    # A: Of course we would have to degrease our emissions to near-zero. For a net negative CO2 emissions there are 2 things I can think of:
+    #    * Use nature: Absoption by plants: By growing trees and plants that absorb carbon. Some amount of CO2 could be degreased. Perhaps we could also use algea or bacteria to absorb CO2 in photobioreactors.
+    #    * Using nuclear or fusion power to electrochemically turn CO2 into liquid or solid forms of CO2(Direct air capture).
 
   def task13():
     ## Task 13a:
     # Q: "Simulating the Termination of Geoengineering. Analyze what would happen if geoengineering were  implemented for a period but then, for some reason, abruptly stopped. Test a scenario where incoming solar radiation is reduced by 4 W/m² from 2050 to 2100. What would happen to global mean temperature in such a scenario (over the entire period up to 2200)?"
-    # A:
+    # A: Temperatures would decrease to almost 0 degrees above pre-industrial times, however once the release of aerosols would stop, the remaining areosol would quickly break down and temperatures would rise to those if we never did geoengineering in the first place. 
     s = 1
     curr_year = 2026
     target_year = 2070
@@ -921,7 +927,7 @@ def part3():
     plt.plot(start_year + our_time_steps, rf_net_ge, label="Geoengineering")
     plt.plot(start_year + our_time_steps, rf_net, label="Base case")
     plt.legend()
-    plt.title("Geoengineering - Radiative forcing (Task 13)")
+    plt.title("Geoengineering - Radiative forcing")
     show_plot("t13_rf_net")
 
     T_diff, dTdt = simulate_temp(our_time_steps, rf_net)
@@ -940,7 +946,7 @@ def part3():
 
     ## Task 13b:
     # Q: "Geoengineering from a Sustainable Development Perspective. Critically discuss the feasibility of  geoengineering as a climate change response from the perspective of sustainable development. In your discussion, compare geoengineering with strategies for reducing CO₂ emissions in the energy system, including the role of negative CO₂ emissions. Evaluate the extent to which geoengineering is consistent with long-term climate objectives and the core principles of sustainable development. Draw on course materials, including the texts on sustainable development, to frame and support your analysis."   
-    # A:
+    # A: Geoengineering and carbon capture would be expensive, but could be capture by carbon taxes. Aerosol release could also negativly affect the environment. Usage of sulfur can lead to ozone depletion, and acid rain. Another challenge is that aerosol release must happen continiously and can't stop, unless large amounts of CO2 is also captured.
     
   if args.q in (0, 11): task11()
   if args.q in (0, 12): task12()
